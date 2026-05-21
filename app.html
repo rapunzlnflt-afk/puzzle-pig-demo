@@ -7662,7 +7662,7 @@ init();
     });
 
     // PIN for parent (default 1234 — shown in the demo banner)
-    await dbPutSetting('parentPin', '1234');
+    await dbPutSetting('parentPin', '12345');
     await dbPutSetting('hasSeenGuide', true);
 
     // Jars (Save / Spend / Give) for each kid
@@ -7829,12 +7829,53 @@ init();
   // ===========================================================
 
   // ---------- Skip Parent PIN in demo ----------
-  // The Parent card on the sign-in page calls requestPinFor('open-parent-settings').
-  // requestPinFor() already short-circuits when window.parentUnlocked === true,
-  // so by flipping that flag on at boot the PIN modal never appears in the demo.
-  // We still keep the PIN visible (1234) on the landing page in case a buyer
-  // tries to lock/unlock things during their session.
-  try { window.parentUnlocked = true; } catch(_){}
+  // Note: the app uses `let parentUnlocked = false` at module scope, which we
+  // cannot reach from out here. Instead we wrap requestPinFor() so demo skips
+  // the PIN modal entirely for the parent-side actions a buyer can trigger.
+  function __demoInstallPinBypass(){
+    if (typeof window.requestPinFor !== 'function') {
+      // requestPinFor isn't defined yet; try again shortly.
+      setTimeout(__demoInstallPinBypass, 50);
+      return;
+    }
+    if (window.__demoPinBypassed) return;
+    window.__demoPinBypassed = true;
+    var orig = window.requestPinFor;
+    window.requestPinFor = async function(action, extra){
+      // Actions that should run immediately without any PIN prompt in demo.
+      var bypass = {
+        'add': function(){ if (typeof showAddUserForm === 'function') showAddUserForm(); },
+        'manage': function(){ window.managingUsers = true; if (typeof renderUserSelect === 'function') renderUserSelect(); },
+        'remove': function(){ if (typeof doRemoveUser === 'function') return doRemoveUser(extra); },
+        'jar-setup': function(){ if (typeof showJarSetup === 'function') showJarSetup(); },
+        'jar-setup-save': function(){ if (typeof saveJarSetup === 'function') return saveJarSetup(); },
+        'jar-transfer': function(){ if (typeof openTransferModal === 'function') openTransferModal(); },
+        'manage-chores': function(){ if (typeof showManageChores === 'function') showManageChores(); },
+        'open-parent-settings': function(){
+          var us = document.getElementById('userSelectScreen');
+          var app = document.getElementById('app');
+          if (us)  us.style.display = 'none';
+          if (app) app.style.display = '';
+          if (typeof showView === 'function') showView('parentSettingsView');
+        },
+        'review-chores': function(){ if (typeof openReviewChoresModal === 'function') openReviewChoresModal(); },
+        'delete-chore': function(){ if (typeof doDeleteChore === 'function') return doDeleteChore(extra); },
+        'save-chore': function(){ if (typeof doSaveChore === 'function') return doSaveChore(); },
+        'jar-edit-name': function(){ if (typeof jarEditName === 'function') return jarEditName(extra); },
+        'jar-add-money': function(){ if (typeof jarAddMoney === 'function') return jarAddMoney(extra); },
+        'jar-withdraw': function(){ if (typeof jarWithdraw === 'function') return jarWithdraw(extra); }
+      };
+      // Don't bypass setup / setup-confirm — those run when there's no PIN saved,
+      // which shouldn't happen in demo (seed installs one). Fall through to original.
+      if (action && bypass[action]) {
+        try { return await bypass[action](); } catch(e){ console.warn('[DEMO] PIN bypass action failed', action, e); }
+        return;
+      }
+      return orig.call(this, action, extra);
+    };
+    console.log('[DEMO] PIN bypass installed');
+  }
+  __demoInstallPinBypass();
 
   // ---------- 'Back to sign-in' link ----------
   // Add a small link to both the kid current-user bar and the top of the
