@@ -7644,8 +7644,20 @@ init();
     var now = new Date().toISOString();
 
     // Users
-    await dbPutUser({ id: SOPHIE,  name: 'Sophie',  pin: '1234', avatar: null });
-    await dbPutUser({ id: JACKSON, name: 'Jackson', pin: '1234', avatar: null });
+    // total_saved and device_claimed_at are normally synced from Supabase;
+    // in demo mode we seed them directly so the parent dashboard shows the
+    // correct earned amounts and the green 'Phone linked' pill.
+    var nowIso = new Date().toISOString();
+    await dbPutUser({
+      id: SOPHIE,  name: 'Sophie',  pin: '1234', avatar: null,
+      total_saved: 43,        // Save $34 + Spend $6 + Give $3
+      device_claimed_at: nowIso
+    });
+    await dbPutUser({
+      id: JACKSON, name: 'Jackson', pin: '1234', avatar: null,
+      total_saved: 18,        // Save $12 + Spend $4 + Give $2
+      device_claimed_at: nowIso
+    });
 
     // PIN for parent (default 1234 — shown in the demo banner)
     await dbPutSetting('parentPin', '1234');
@@ -7821,6 +7833,17 @@ init();
     // Hide setup screens (they should never appear in demo)
     if (famSetup) famSetup.style.display = 'none';
     if (kidPick)  kidPick.style.display  = 'none';
+
+    // Close any open modal first (e.g. the kid-card modal in parent view)
+    try {
+      var openModals = document.querySelectorAll('.pp32-modal-overlay, .modal-overlay, [class*="modal"][style*="display: flex"]');
+      openModals.forEach(function(m){
+        // Look for a close button or just hide it
+        var closeBtn = m.querySelector('.pp32-modal-close, .modal-close, [aria-label="Close"], [onclick*="close"]');
+        if (closeBtn) closeBtn.click();
+        else m.style.display = 'none';
+      });
+    } catch(_){}
 
     if (target === 'parent') {
       document.body.classList.add('pp-parent-mode');
