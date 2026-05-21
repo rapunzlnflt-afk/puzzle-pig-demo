@@ -1,6 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- ===== PUZZLE PIG DEMO MODE BOOTSTRAP ===== -->
+<script>
+(function(){
+  // Set demo flag GLOBALLY before any other code runs
+  window.__PP_DEMO__ = true;
+
+  // Demo identity constants — used by seed + role switcher
+  window.__PP_DEMO_FAMILY_ID__ = 'demo-family-fixed-id';
+  window.__PP_DEMO_FAMILY_CODE__ = 'DEMO01';
+  window.__PP_DEMO_SOPHIE_ID__ = 'demo_kid_sophie';
+  window.__PP_DEMO_JACKSON_ID__ = 'demo_kid_jackson';
+
+  // Wipe localStorage of any pp_* keys + supabase auth
+  try {
+    var rmKeys = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && (k.indexOf('pp_') === 0 || k.indexOf('sb-') === 0 || k === 'pp_supa_auth')) rmKeys.push(k);
+    }
+    rmKeys.forEach(function(k){ localStorage.removeItem(k); });
+  } catch(_){}
+
+  // Seed localStorage so the app boots straight into parent mode
+  // (skips family-code entry screen)
+  try {
+    localStorage.setItem('pp_family_id', window.__PP_DEMO_FAMILY_ID__);
+    localStorage.setItem('pp_family_code', window.__PP_DEMO_FAMILY_CODE__);
+    localStorage.setItem('pp_role', 'parent');
+  } catch(_){}
+
+  // Wipe IndexedDB before the app's openDB() runs.
+  // We do this synchronously-ish via a promise the app code can await,
+  // but since openDB() doesn't await us, we have to nuke before anything else.
+  // Strategy: delete the DB, set a sentinel to indicate seed-needed.
+  window.__PP_DEMO_NEEDS_SEED__ = true;
+  try {
+    var delReq = indexedDB.deleteDatabase('PuzzlePigDB');
+    delReq.onsuccess = function(){ console.log('[DEMO] PuzzlePigDB wiped'); };
+    delReq.onerror   = function(){ console.warn('[DEMO] PuzzlePigDB wipe failed'); };
+    delReq.onblocked = function(){ console.warn('[DEMO] PuzzlePigDB wipe blocked'); };
+  } catch(e) { console.warn('[DEMO] wipe threw', e); }
+})();
+</script>
+<!-- ===== END DEMO BOOTSTRAP ===== -->
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Puzzle Pig — Demo</title>
@@ -283,7 +328,8 @@ a { color: inherit; text-decoration: none; }
 
 /* ============ PUZZLE VIEW ============ */
 .puzzle-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
-.puzzle-back { display: flex; align-items: center; gap: var(--space-1); font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
+.puzzle-back { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; color: var(--purple-600, #7C3AED); font-weight: 600; padding: 6px 12px; border: 1.5px solid var(--purple-200, #DDD6FE); background: var(--purple-50, #F5F3FF); border-radius: 999px; transition: background 0.15s, border-color 0.15s; }
+.puzzle-back:hover { background: var(--purple-100, #EDE9FE); border-color: var(--purple-500, #7C3AED); }
 .puzzle-back svg { width: 20px; height: 20px; }
 .puzzle-menu-btn {
   display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;
@@ -734,6 +780,99 @@ a { color: inherit; text-decoration: none; }
   box-shadow: var(--shadow-sm); border: 1px solid var(--border);
 }
 .parent-card + .parent-card { margin-top: var(--space-3); }
+
+/* ===== v=32 PARENT REDESIGN ===== */
+.pp32-page { padding: var(--space-3); max-width: 1100px; margin: 0 auto; }
+@media (min-width: 720px) { .pp32-page { padding: var(--space-4) var(--space-5); } }
+.pp32-pagehead { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); margin-bottom: var(--space-4); }
+.pp32-pagehead h2 { margin:0; font-size:1.25rem; }
+.pp32-section-label { font-size:0.72rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.6px; display:flex; align-items:center; justify-content:space-between; margin: var(--space-3) 0 var(--space-2); }
+.pp32-section-label a { font-size:0.78rem; color: var(--purple-600, #6D28D9); text-decoration:none; font-weight:600; cursor:pointer; }
+.pp32-children-grid { display:grid; grid-template-columns: 1fr; gap: var(--space-3); }
+@media (min-width: 720px) { .pp32-children-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1024px) { .pp32-children-grid { grid-template-columns: 1fr 1fr 1fr; } }
+.pp32-kid { background: var(--surface); border:1px solid var(--border); border-radius: 14px; overflow:visible; box-shadow: var(--shadow-sm); position:relative; }
+.pp32-kid-head { display:flex; align-items:center; gap:10px; padding:12px; cursor:pointer; }
+.pp32-kid-avatar { width:38px; height:38px; border-radius:50%; color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:0.95rem; }
+.pp32-kid-main { flex:1; min-width:0; }
+.pp32-kid-name { font-weight:700; font-size:0.95rem; line-height:1.2; }
+.pp32-kid-meta { display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap; width:100%; }
+.pp32-kid-meta > span { font-size:0.72rem; font-weight:600; padding:3px 10px; border-radius:10px; border:1px solid transparent; line-height:1.2; display:inline-flex; align-items:center; }
+.pp32-pill-earned { background:#DCFCE7; color:#15803D; border-color:#BBF7D0; }
+.pp32-pill-linked { background:#ECFDF5; color:#047857; border-color:#A7F3D0; margin-left:auto; }
+.pp32-pill-unlinked { background:#F3F4F6; color:#6B7280; border-color:#E5E7EB; margin-left:auto; }
+.pp32-pill-pending { background:#FED7AA; color:#C2410C; font-weight:700; border-color:#FDBA74; }
+.pp32-kid-chevron { color: var(--text-muted); transition: transform 0.18s; flex-shrink:0; }
+.pp32-kid.expanded .pp32-kid-chevron { transform: rotate(90deg); }
+.pp32-kid-body { padding: 0 12px 12px; display:none; border-top: 1px solid var(--border); padding-top: 10px; }
+.pp32-kid.expanded .pp32-kid-body { display:block; }
+.pp32-pending-row { display:flex; align-items:center; gap:8px; padding:8px 10px; background:#FAF7FE; border-left:3px solid var(--purple-500, #7C3AED); border-radius:6px; margin-bottom:6px; }
+.pp32-pending-row .name { flex:1; min-width:0; font-weight:600; font-size:0.85rem; }
+.pp32-pending-row .amt { font-size:0.72rem; color:var(--text-muted); }
+.pp32-pending-row .btn { font-size:0.75rem; padding:5px 10px; border:none; border-radius:6px; cursor:pointer; font-weight:600; }
+.pp32-btn-approve { background:#16A34A; color:#fff; }
+.pp32-btn-reject { background:#FEE2E2; color:#DC2626; }
+.pp32-menu-btn { background:none; border:none; padding:6px; border-radius:6px; color:var(--text-muted); cursor:pointer; flex-shrink:0; }
+.pp32-menu-btn:hover { background: var(--silver-100, #F3F4F6); }
+.pp32-menu-pop { position:absolute; top: 48px; right: 8px; background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.12); min-width:160px; padding:4px; z-index:50; display:none; }
+.pp32-menu-pop.open { display:block; }
+.pp32-menu-pop button { display:block; width:100%; text-align:left; background:none; border:none; padding:8px 12px; font-size:0.85rem; cursor:pointer; border-radius:6px; color: var(--text); }
+.pp32-menu-pop button:hover { background: var(--silver-100, #F3F4F6); }
+.pp32-menu-pop button.danger { color: #DC2626; }
+.pp32-chores-box { background: var(--surface); border:1px solid var(--border); border-radius: 14px; overflow:hidden; box-shadow: var(--shadow-sm); }
+.pp32-chore-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); }
+.pp32-chore-row:last-of-type { border-bottom: none; }
+.pp32-chore-main { flex:1; min-width:0; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.pp32-chore-name { font-weight:600; font-size:0.92rem; }
+.pp32-chore-meta { font-size:0.74rem; color:var(--text-muted); }
+.pp32-chore-pay { font-weight:700; font-size:0.88rem; color: var(--text); white-space:nowrap; min-width:48px; text-align:right; }
+.pp32-mini-avatars { display:flex; align-items:center; flex-wrap:wrap; gap:3px; }
+@media (max-width: 719px) { .pp32-chore-main { flex-direction:column; align-items:flex-start; gap:4px; } }
+.pp32-mini-avatar { width:22px; height:22px; border-radius:50%; color:#fff; font-size:0.65rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; user-select:none; border:1.5px solid transparent; transition: opacity 0.15s; }
+.pp32-mini-avatar.off { opacity: 0.32; background: var(--silver-300, #d1d5db) !important; }
+.pp32-icon-btn { background:none; border:none; padding:6px; color:var(--text-muted); cursor:pointer; border-radius:6px; flex-shrink:0; }
+.pp32-icon-btn:hover { background: var(--silver-100, #F3F4F6); }
+.pp32-icon-btn.danger:hover { background: #FEE2E2; color: #DC2626; }
+.pp32-chore-footer { padding:10px 12px; display:flex; justify-content:space-between; align-items:center; background: var(--silver-50, #FAFAFA); font-size:0.78rem; color: var(--text-muted); }
+.pp32-chore-footer a { color: var(--purple-600, #6D28D9); font-weight:600; cursor:pointer; text-decoration:none; }
+.pp32-pin-row { display:flex; align-items:center; gap:10px; padding:14px; background:var(--surface); border:1px solid var(--border); border-radius:12px; margin-top:var(--space-3); cursor:pointer; }
+.pp32-pin-row:hover { background: var(--silver-50, #FAFAFA); }
+.pp32-pin-icon { width:36px; height:36px; border-radius:8px; background:var(--purple-100, #EDE9FE); color:var(--purple-600, #6D28D9); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.pp32-pin-text { flex:1; }
+.pp32-pin-title { font-weight:600; font-size:0.9rem; }
+.pp32-pin-sub { font-size:0.75rem; color:var(--text-muted); margin-top:1px; }
+/* On desktop: child cards stay COLLAPSED; clicking opens a modal */
+@media (min-width: 720px) { .pp32-kid .pp32-kid-body { display:none; } .pp32-kid-head { padding: 10px 12px; } .pp32-kid { cursor:pointer; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; } .pp32-kid:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(124,58,237,0.12); border-color: var(--purple-500, #7C3AED); } .pp32-kid::after { content: 'Tap to manage'; position:absolute; bottom:6px; left:0; right:0; text-align:center; font-size:0.7rem; color: var(--text-muted); letter-spacing:0.02em; pointer-events:none; opacity:0.75; } .pp32-kid-head { padding-bottom: 22px; } }
+.pp32-kid-head:hover { background: var(--silver-50, #FAFAFA); }
+/* Desktop chore column headers */
+.pp32-chore-headers { display:none; padding: 8px 12px; background: var(--silver-50, #FAFAFA); border-bottom: 1px solid var(--border); font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; gap: 10px; align-items:center; }
+@media (min-width: 720px) { .pp32-chore-headers { display:flex; } }
+.pp32-chore-headers .col-main { flex: 1; }
+.pp32-chore-headers .col-assigned { width: 110px; text-align:center; }
+.pp32-chore-headers .col-pay { width: 60px; text-align: right; }
+.pp32-chore-headers .col-actions { width: 60px; text-align: right; }
+@media (min-width: 720px) {
+  .pp32-chore-main { flex-direction: row; align-items: center; }
+  .pp32-chore-main > div:first-child { flex: 1; min-width: 0; }
+  .pp32-mini-avatars { width: 110px; justify-content: center; }
+  .pp32-chore-pay { width: 60px; }
+}
+/* Child detail modal */
+.pp32-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: var(--space-4); animation: pp32fade 0.15s ease-out; }
+.pp32-modal { background: var(--surface); border-radius: 16px; max-width: 460px; width: 100%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: pp32slide 0.18s ease-out; }
+.pp32-modal-head { display: flex; align-items: center; gap: 12px; padding: 18px; border-bottom: 1px solid var(--border); }
+.pp32-modal-head .pp32-kid-avatar { width: 48px; height: 48px; font-size: 1.15rem; }
+.pp32-modal-head h3 { margin: 0; font-size: 1.15rem; }
+.pp32-modal-close { background: none; border: none; padding: 6px; color: var(--text-muted); cursor: pointer; border-radius: 6px; margin-left: auto; }
+.pp32-modal-close:hover { background: var(--silver-100, #F3F4F6); }
+.pp32-modal-body { padding: 16px 18px; }
+.pp32-modal-section { margin-bottom: 16px; }
+.pp32-modal-section h4 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 0 0 8px; }
+.pp32-modal-actions { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--border); background: var(--silver-50, #FAFAFA); }
+.pp32-modal-actions .btn { flex: 1; }
+@keyframes pp32fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pp32slide { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+/* ===== END v=32 ===== */
 .parent-chore-item {
   display: flex; align-items: center; gap: var(--space-3);
   padding: var(--space-3) 0; border-bottom: 1px solid var(--border);
@@ -1422,11 +1561,209 @@ a { color: inherit; text-decoration: none; }
   @page { margin: 0.75in; }
 }
 </style>
+<style>
+  /* ===== Kid-mode lockdown: hide parent-only UI when body.pp-kid-mode is set ===== */
+  body.pp-kid-mode #navAdd,                /* Bottom-nav: + Add Goal */
+  body.pp-kid-mode .nav-add,
+  body.pp-kid-mode [data-testid="nav-add"],
+  body.pp-kid-mode #manageUsersBtn,
+  body.pp-kid-mode [data-testid="user-card-parent"],
+  body.pp-kid-mode [data-testid="add-user-btn"],
+  body.pp-kid-mode #bottomNav,             /* Hide the whole bottom nav — kids only see homeView */
+  body.pp-kid-mode #userSelectScreen {       /* never show the avatar picker on kid devices */
+    display: none !important;
+  }
+  body.pp-kid-mode .user-card-remove { display:none !important; }
+  /* Hide the small "current user" switcher chip on the kid side — they can't switch */
+  body.pp-kid-mode #currentUserBar .user-bar-switch,
+  body.pp-kid-mode #currentUserBar [onclick*="showUserSelect"] { display:none !important; }
+  /* Parent never acts as a child; hide the Switch User button entirely */
+  body.pp-parent-mode #currentUserBar { display:none !important; }
+  body.pp-parent-mode .switch-user-btn { display:none !important; }
+  /* Parent never sees the avatar picker — they have their own settings view */
+  body.pp-parent-mode #userSelectScreen { display:none !important; }
+  body.pp-parent-mode #mainHeader { display:none !important; }
+  body.pp-parent-mode #bottomNav { display:none !important; }
+  body.pp-parent-mode #currentUserBar { display:none !important; }
+  /* On parent device, kill the extra padding-bottom reserved for bottom nav */
+  body.pp-parent-mode #app { padding-top: 0 !important; padding-bottom: var(--space-4) !important; }
+  /* Hide all views except parentSettingsView on parent device */
+  body.pp-parent-mode .view:not(#parentSettingsView) { display:none !important; }
+  /* Remove bottom-nav padding from the app on kid devices so content isn't shifted up */
+  body.pp-kid-mode #app { padding-bottom: 0 !important; }
+</style>
+ <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<!-- ===== Puzzle Pig: Family Setup Overlay (purple themed) ===== -->
+<div id="familySetupScreen" style="
+  display:none;
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  width:100vw; height:100vh;
+  background: linear-gradient(160deg, #5C4287 0%, #6A4C96 60%, #7B5AA8 100%);
+  align-items:center; justify-content:center;
+  z-index:99999;
+  padding:24px; box-sizing:border-box;
+  font-family:'DM Sans','Pally',system-ui,-apple-system,sans-serif;
+  color:#fff;
+  overflow-y:auto;
+">
+  <div style="width:100%; max-width:380px; text-align:center;">
+    <img src="data:image/png;base64,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" alt="Puzzle Pig" style="width:88px; height:88px; display:block; margin:0 auto 8px; object-fit:contain;"/>
+    <h1 style="font-family:'Pally','DM Sans',sans-serif; font-size:34px; font-weight:700; margin:0 0 8px 0; color:#fff; letter-spacing:-0.5px;">Puzzle Pig</h1>
+    <p id="familySetupHeadline" style="font-size:17px; opacity:0.92; margin:0 0 32px 0; line-height:1.4;">Set up your family to sync chores between devices.</p>
 
-<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#6E6E7E,#D8D8DE,#F4F4F8,#D8D8DE,#6E6E7E);padding:6px 16px;text-align:center;font:600 13px/1.4 'Pally',sans-serif;color:#52525E;letter-spacing:.5px;">DEMO — Data resets on refresh &nbsp;|&nbsp; <a href="https://www.etsy.com/listing/4490566794/puzzle-piggy-kids-savings-tracker-chore" style="color:#7C5AC7;text-decoration:underline;font-weight:700;">Get the Full Version</a></div>
-<div style="height:32px;"></div>
+    <!-- Choice view -->
+    <div id="familySetupChoice">
+      <button id="startFamilyBtn" style="
+        background:#fff; color:#5C4287;
+        border:none; padding:18px 24px; font-size:17px; font-weight:600;
+        border-radius:14px; margin-bottom:14px; cursor:pointer; width:100%;
+        box-shadow:0 6px 18px rgba(0,0,0,0.18);
+        font-family:inherit;
+      ">I'm a Parent</button>
+      <button id="joinFamilyBtn" style="
+        background:transparent; color:#fff;
+        border:2px solid rgba(255,255,255,0.6); padding:16px 24px; font-size:17px; font-weight:600;
+        border-radius:14px; cursor:pointer; width:100%;
+        font-family:inherit;
+      ">I'm a Kid</button>
+    </div>
+
+    <!-- Parent: code display view -->
+    <div id="familySetupParentCode" style="display:none;">
+      <div style="background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); border-radius:16px; padding:24px 20px; margin-bottom:16px;">
+        <div style="font-size:13px; opacity:0.85; text-transform:uppercase; letter-spacing:1.2px; margin-bottom:10px;">Your Family Code</div>
+        <div id="familyCodeDisplay" style="font-family:'DM Sans',monospace; font-size:42px; font-weight:700; letter-spacing:6px; color:#fff; margin-bottom:6px;">------</div>
+        <div style="font-size:13px; opacity:0.85; line-height:1.45;">Share this code with your kid's device to connect.</div>
+      </div>
+      <button id="familySetupDoneBtn" style="
+        background:#fff; color:#5C4287;
+        border:none; padding:16px 24px; font-size:16px; font-weight:600;
+        border-radius:12px; cursor:pointer; width:100%;
+        font-family:inherit;
+      ">Continue to App</button>
+    </div>
+
+    <!-- Child: code entry view -->
+    <div id="familySetupChildEntry" style="display:none;">
+      <label style="display:block; font-size:13px; opacity:0.85; text-transform:uppercase; letter-spacing:1.2px; margin-bottom:10px;">Enter Family Code</label>
+      <input id="familyCodeInput" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="ABC234"
+        style="width:100%; padding:18px 16px; font-size:28px; font-weight:700; letter-spacing:8px; text-align:center;
+               border:2px solid rgba(255,255,255,0.5); border-radius:14px; background:rgba(255,255,255,0.12); color:#fff;
+               box-sizing:border-box; text-transform:uppercase; font-family:'DM Sans',monospace; margin-bottom:14px;">
+      <button id="familyJoinSubmitBtn" style="
+        background:#fff; color:#5C4287;
+        border:none; padding:16px 24px; font-size:16px; font-weight:600;
+        border-radius:12px; cursor:pointer; width:100%; margin-bottom:10px;
+        font-family:inherit;
+      ">Join Family</button>
+      <button id="familyJoinBackBtn" style="
+        background:transparent; color:#fff;
+        border:none; padding:10px; font-size:14px; cursor:pointer; width:100%; opacity:0.85;
+        font-family:inherit;
+      ">← Back</button>
+    </div>
+
+    <p id="familySetupStatus" style="margin-top:20px; font-size:14px; min-height:20px; opacity:0.95;"></p>
+  </div>
+</div>
+
+<!-- ===== Puzzle Pig: Parent Toast (pending chore approvals from kid) ===== -->
+<div id="ppParentToast" style="
+  display:none; position:fixed; top:16px; left:50%; transform:translateX(-50%);
+  z-index:99998; max-width:92vw; min-width:280px;
+  background:#fff; color:#2D2A26; border:1px solid #E2DAF0; border-left:5px solid #5C4287;
+  border-radius:14px; box-shadow:0 12px 32px rgba(74,53,112,0.25);
+  padding:14px 16px; font-family:'DM Sans',system-ui,sans-serif;
+">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+    <div style="font-size:22px;">⭐</div>
+    <div style="flex:1;">
+      <div style="font-weight:700; font-size:14px; color:#5C4287;">Chore completed!</div>
+      <div id="ppParentToastBody" style="font-size:13px; color:#52525E; margin-top:2px;"></div>
+    </div>
+    <button id="ppParentToastClose" style="background:none; border:none; font-size:18px; color:#A0A0AE; cursor:pointer; padding:0 4px;">×</button>
+  </div>
+  <div style="display:flex; gap:8px; margin-top:6px;">
+    <button id="ppParentToastDeny" style="flex:1; background:#fff; color:#EF4444; border:1.5px solid #EF4444; padding:9px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; font-family:inherit;">Deny</button>
+    <button id="ppParentToastApprove" style="flex:1; background:#22C55E; color:#fff; border:none; padding:9px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; font-family:inherit;">Approve</button>
+  </div>
+</div>
+
+<!-- ===== Puzzle Pig: Sync indicator chip ===== -->
+<div id="ppSyncChip" style="
+  display:none; position:fixed; bottom:84px; right:12px; z-index:9000;
+  background:rgba(92,66,135,0.92); color:#fff; font-size:11px; font-weight:600;
+  padding:6px 10px; border-radius:999px; font-family:'DM Sans',system-ui,sans-serif;
+  box-shadow:0 4px 12px rgba(0,0,0,0.15); pointer-events:none;
+">Syncing…</div>
+<!-- Demo banner removed for real two-device version -->
+
+<!-- ===== Kid-side: 'Who are you?' overlay (only shown on child devices after family is joined) ===== -->
+<div id="kidPickScreen" style="
+  display:none;
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  width:100vw; height:100vh;
+  background: linear-gradient(160deg, #5C4287 0%, #6A4C96 60%, #7B5AA8 100%);
+  align-items:center; justify-content:center;
+  z-index:99990;
+  padding:24px; box-sizing:border-box;
+  font-family:'DM Sans','Pally',system-ui,-apple-system,sans-serif;
+  color:#fff; overflow-y:auto;
+">
+  <div style="width:100%; max-width:420px; text-align:center;">
+    <img src="data:image/png;base64,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" alt="Puzzle Pig" style="width:72px; height:72px; display:block; margin:0 auto 8px; object-fit:contain;"/>
+    <h1 id="kidPickTitle" style="font-family:'Pally','DM Sans',sans-serif; font-size:28px; font-weight:700; margin:0 0 8px 0; color:#fff;">Who are you?</h1>
+    <p id="kidPickSubtitle" style="font-size:15px; opacity:0.9; margin:0 0 28px 0; line-height:1.4;">Tap your avatar to start.</p>
+
+    <!-- Avatar picker grid -->
+    <div id="kidPickGrid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap:14px; margin-bottom:20px;"></div>
+
+    <!-- Waiting state -->
+    <div id="kidPickWaiting" style="display:none; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.22); border-radius:16px; padding:28px 20px;">
+      <div style="font-size:42px; margin-bottom:8px;">⏳</div>
+      <div style="font-size:16px; font-weight:600; margin-bottom:6px;">Waiting for your parent…</div>
+      <div id="kidPickFamilyHint" style="font-size:12px; opacity:0.75; margin:6px 0 10px 0;"></div>
+      <div style="font-size:13px; opacity:0.85; line-height:1.45;">Ask your parent to add you on their phone. You'll show up here as soon as they do.</div>
+    </div>
+
+    <p id="kidPickStatus" style="margin-top:18px; font-size:13px; min-height:18px; opacity:0.92;"></p>
+
+    <button id="kidPickResetBtn" style="
+      margin-top:18px; background:transparent; color:rgba(255,255,255,0.75); border:1px solid rgba(255,255,255,0.35);
+      padding:10px 18px; font-size:13px; border-radius:10px; cursor:pointer; font-family:inherit;
+    ">Not your family? Start over</button>
+  </div>
+</div>
+
+<!-- ===== Kid-side: PIN entry overlay (only if parent has set a PIN for this kid) ===== -->
+<div id="kidPinScreen" style="
+  display:none;
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  width:100vw; height:100vh;
+  background: linear-gradient(160deg, #5C4287 0%, #6A4C96 60%, #7B5AA8 100%);
+  align-items:center; justify-content:center;
+  z-index:99991;
+  padding:24px; box-sizing:border-box;
+  font-family:'DM Sans','Pally',system-ui,-apple-system,sans-serif;
+  color:#fff;
+">
+  <div style="width:100%; max-width:360px; text-align:center;">
+    <div id="kidPinAvatar" style="width:88px; height:88px; border-radius:50%; background:rgba(255,255,255,0.18); margin:0 auto 14px auto; display:flex; align-items:center; justify-content:center; font-size:36px; font-weight:700; border:2px solid rgba(255,255,255,0.5);"></div>
+    <div id="kidPinHello" style="font-size:18px; font-weight:600; margin-bottom:6px;">Hi there</div>
+    <div style="font-size:14px; opacity:0.85; margin-bottom:22px;">Enter your PIN to unlock</div>
+    <input id="kidPinInput" type="tel" inputmode="numeric" maxlength="8" autocomplete="off"
+      style="width:100%; padding:18px 16px; font-size:28px; font-weight:700; letter-spacing:10px; text-align:center;
+             border:2px solid rgba(255,255,255,0.5); border-radius:14px; background:rgba(255,255,255,0.12); color:#fff;
+             box-sizing:border-box; font-family:'DM Sans',monospace; margin-bottom:14px;">
+    <button id="kidPinSubmit" style="
+      background:#fff; color:#5C4287; border:none; padding:16px 24px; font-size:16px; font-weight:600;
+      border-radius:12px; cursor:pointer; width:100%; font-family:inherit;
+    ">Unlock</button>
+    <p id="kidPinStatus" style="margin-top:14px; font-size:13px; min-height:18px; opacity:0.95;"></p>
+  </div>
+</div>
 <!-- ===== USER SELECT SCREEN ===== -->
 <div id="userSelectScreen">
   <div class="app-logo">
@@ -1472,7 +1809,7 @@ a { color: inherit; text-decoration: none; }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>
       </button>
 
-      <button class="switch-user-btn" onclick="switchUser()">Switch User</button>
+      <!-- v=39: Switch User removed in kid app (one child per phone) -->
     </div>
   </div>
 
@@ -1849,10 +2186,9 @@ a { color: inherit; text-decoration: none; }
         <label class="day-chip"><input type="checkbox" value="6"><span>Sat</span></label>
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Assign To</label>
-      <div id="choreUserCheckboxes" class="chore-user-checkboxes"></div>
-    </div>
+    <!-- Assign To removed in v=32: chores are universal at creation; assign per-child from the parent page chips -->
+    <div id="choreUserCheckboxes" class="chore-user-checkboxes" style="display:none;"></div>
+    <p id="choreAssignHint" style="font-size:0.78rem;color:var(--text-muted);margin:-4px 0 var(--space-3);">New chores are unassigned. After saving, tap the child avatars on the chore row to assign.</p>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeAddChoreModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveChore()" id="saveChoreBtn">Add Chore</button>
@@ -2047,10 +2383,14 @@ let selectedCategory = null;
 let uploadedImageData = null;
 
 // ---- Jars + Chores State ----
+// NOTE: `chores` and `choreLogs` are `var` (not `let`) so they become
+// properties of `window`. The Supabase sync layer lives in another <script>
+// and writes window.chores / window.choreLogs from realtime events; with
+// `let` those writes wouldn't be visible to the renderers in this script.
 let jars = [];
 let jarTxs = [];
-let chores = [];
-let choreLogs = [];
+var chores = [];
+var choreLogs = [];
 let currentJarId = null;  // jar being viewed for detail
 let jarSetupMode = false;
 let selectedAllocJarId = null;
@@ -2069,33 +2409,163 @@ const DEFAULT_JARS = [
   { name: 'Give', type: 'give', color: '#E74C3C' },
 ];
 
-// ---- IndexedDB (Demo: in-memory) ----
-let _memGoals = []; let _memUsers = []; let _memSettings = {};
-let _memJars = []; let _memJarTxs = []; let _memChores = []; let _memChoreLogs = [];
-function openDB(){ return Promise.resolve(); }
-function dbGetAll(){ return Promise.resolve([..._memGoals.map(g=>JSON.parse(JSON.stringify(g)))]); }
-function dbPut(g){ const i = _memGoals.findIndex(x=>x.id===g.id); if(i>=0) _memGoals[i]=JSON.parse(JSON.stringify(g)); else _memGoals.push(JSON.parse(JSON.stringify(g))); return Promise.resolve(); }
-function dbDelete(id){ _memGoals = _memGoals.filter(g=>g.id!==id); return Promise.resolve(); }
-function dbGetAllUsers(){ return Promise.resolve([..._memUsers.map(u=>({...u}))]); }
-function dbPutUser(u){ const i = _memUsers.findIndex(x=>x.id===u.id); if(i>=0) _memUsers[i]={...u}; else _memUsers.push({...u}); return Promise.resolve(); }
-function dbDeleteUser(id){ _memUsers = _memUsers.filter(u=>u.id!==id); return Promise.resolve(); }
-function dbGetSetting(k){ return Promise.resolve(_memSettings[k] !== undefined ? _memSettings[k] : null); }
-function dbPutSetting(key, value){ _memSettings[key] = value; return Promise.resolve(); }
-function dbPutJar(j){ const i = _memJars.findIndex(x=>x.id===j.id); if(i>=0) _memJars[i]=JSON.parse(JSON.stringify(j)); else _memJars.push(JSON.parse(JSON.stringify(j))); return Promise.resolve(); }
-function dbDeleteJar(id){ _memJars = _memJars.filter(j=>j.id!==id); return Promise.resolve(); }
-function dbGetAllJars(){ return Promise.resolve([..._memJars.map(j=>JSON.parse(JSON.stringify(j)))]); }
-function dbPutJarTx(t){ const i = _memJarTxs.findIndex(x=>x.id===t.id); if(i>=0) _memJarTxs[i]=JSON.parse(JSON.stringify(t)); else _memJarTxs.push(JSON.parse(JSON.stringify(t))); return Promise.resolve(); }
-function dbGetAllJarTxs(){ return Promise.resolve([..._memJarTxs.map(t=>JSON.parse(JSON.stringify(t)))]); }
-function dbPutChore(c){ const i = _memChores.findIndex(x=>x.id===c.id); if(i>=0) _memChores[i]=JSON.parse(JSON.stringify(c)); else _memChores.push(JSON.parse(JSON.stringify(c))); return Promise.resolve(); }
-function dbDeleteChore(id){ _memChores = _memChores.filter(c=>c.id!==id); return Promise.resolve(); }
-function dbGetAllChores(){ return Promise.resolve([..._memChores.map(c=>JSON.parse(JSON.stringify(c)))]); }
-function dbPutChoreLog(e){ const i = _memChoreLogs.findIndex(x=>x.id===e.id); if(i>=0) _memChoreLogs[i]=JSON.parse(JSON.stringify(e)); else _memChoreLogs.push(JSON.parse(JSON.stringify(e))); return Promise.resolve(); }
-function dbGetAllChoreLogs(){ return Promise.resolve([..._memChoreLogs.map(e=>JSON.parse(JSON.stringify(e)))]); }
+// ---- IndexedDB (real persistence) ----
+// Goals, jars, jar transactions, settings: persisted directly to IndexedDB.
+// Users, chores, chore logs: ALSO kept in _mem* arrays as a working set for
+// the Supabase sync layer (which reads/writes _memUsers / _memChores /
+// _memChoreLogs synchronously). The `dbPut*` / `dbDelete*` helpers mirror
+// every write into both IndexedDB AND the _mem array so the sync layer keeps
+// working unchanged, and reloads still surface the data immediately while
+// IndexedDB hydrates.
+const DB_NAME = 'PuzzlePigDB';
+const DB_VERSION = 4;
+const STORE_NAME = 'goals';
+const USER_STORE = 'users';
+const SETTINGS_STORE = 'settings';
+const JARS_STORE = 'jars';
+const JAR_TX_STORE = 'jarTransactions';
+const CHORES_STORE = 'chores';
+const CHORE_LOG_STORE = 'choreLog';
+let db = null;
+// In-memory caches used by the Supabase sync layer (and as a hot read path).
+let _memUsers = []; let _memChores = []; let _memChoreLogs = [];
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains(STORE_NAME))      d.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      if (!d.objectStoreNames.contains(USER_STORE))      d.createObjectStore(USER_STORE, { keyPath: 'id' });
+      if (!d.objectStoreNames.contains(SETTINGS_STORE))  d.createObjectStore(SETTINGS_STORE, { keyPath: 'key' });
+      if (!d.objectStoreNames.contains(JARS_STORE))      d.createObjectStore(JARS_STORE, { keyPath: 'id' });
+      if (!d.objectStoreNames.contains(JAR_TX_STORE))    d.createObjectStore(JAR_TX_STORE, { keyPath: 'id' });
+      if (!d.objectStoreNames.contains(CHORES_STORE))    d.createObjectStore(CHORES_STORE, { keyPath: 'id' });
+      if (!d.objectStoreNames.contains(CHORE_LOG_STORE)) d.createObjectStore(CHORE_LOG_STORE, { keyPath: 'id' });
+    };
+    req.onsuccess = async (e) => {
+      db = e.target.result;
+      // Hydrate the in-memory caches from IndexedDB so the sync layer sees
+      // existing data before any pullAndMerge runs.
+      try {
+        _memUsers     = await _idbGetAll(USER_STORE);
+        _memChores    = await _idbGetAll(CHORES_STORE);
+        _memChoreLogs = await _idbGetAll(CHORE_LOG_STORE);
+        console.log('[PuzzlePig] hydrated from IndexedDB: users=', _memUsers.length, 'chores=', _memChores.length, 'choreLogs=', _memChoreLogs.length);
+      } catch(err){ console.warn('[PuzzlePig] hydration failed', err); }
+      resolve(db);
+    };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// Internal helper: getAll from a store.
+function _idbGetAll(storeName) {
+  return new Promise((resolve, reject) => {
+    if (!db) return resolve([]);
+    const tx = db.transaction(storeName, 'readonly');
+    const req = tx.objectStore(storeName).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+function _idbPut(storeName, value) {
+  return new Promise((resolve, reject) => {
+    if (!db) return resolve();
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).put(value);
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+function _idbDelete(storeName, id) {
+  return new Promise((resolve, reject) => {
+    if (!db) return resolve();
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// ---- Goals (IndexedDB only) ----
+function dbPut(g)      { return _idbPut(STORE_NAME, g); }
+function dbDelete(id)  { return _idbDelete(STORE_NAME, id); }
+function dbGetAll()    { return _idbGetAll(STORE_NAME); }
+
+// ---- Users (IndexedDB + _memUsers mirror) ----
+async function dbPutUser(u) {
+  const i = _memUsers.findIndex(x => x.id === u.id);
+  const copy = {...u};
+  if (i >= 0) _memUsers[i] = copy; else _memUsers.push(copy);
+  await _idbPut(USER_STORE, u);
+}
+async function dbDeleteUser(id) {
+  _memUsers = _memUsers.filter(u => u.id !== id);
+  await _idbDelete(USER_STORE, id);
+}
+function dbGetAllUsers() {
+  // Prefer the hydrated/synced in-memory cache; falls back to IDB if empty.
+  if (_memUsers && _memUsers.length) return Promise.resolve(_memUsers.map(u => ({...u})));
+  return _idbGetAll(USER_STORE);
+}
+
+// ---- Settings (IndexedDB only) ----
+function dbGetSetting(key) {
+  return new Promise((resolve, reject) => {
+    if (!db) return resolve(null);
+    const tx = db.transaction(SETTINGS_STORE, 'readonly');
+    const req = tx.objectStore(SETTINGS_STORE).get(key);
+    req.onsuccess = () => resolve(req.result ? req.result.value : null);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+function dbPutSetting(key, value) { return _idbPut(SETTINGS_STORE, { key, value }); }
+
+// ---- Jars (IndexedDB only) ----
+function dbPutJar(j)         { return _idbPut(JARS_STORE, j); }
+function dbDeleteJar(id)     { return _idbDelete(JARS_STORE, id); }
+function dbGetAllJars()      { return _idbGetAll(JARS_STORE); }
+function dbPutJarTx(t)       { return _idbPut(JAR_TX_STORE, t); }
+function dbGetAllJarTxs()    { return _idbGetAll(JAR_TX_STORE); }
+function dbDeleteJarTx(id)   { return _idbDelete(JAR_TX_STORE, id); }
+
+// ---- Chores (IndexedDB + _memChores mirror) ----
+async function dbPutChore(c) {
+  const i = _memChores.findIndex(x => x.id === c.id);
+  const copy = JSON.parse(JSON.stringify(c));
+  if (i >= 0) _memChores[i] = copy; else _memChores.push(copy);
+  await _idbPut(CHORES_STORE, c);
+}
+async function dbDeleteChore(id) {
+  _memChores = _memChores.filter(c => c.id !== id);
+  await _idbDelete(CHORES_STORE, id);
+}
+function dbGetAllChores() {
+  if (_memChores && _memChores.length) return Promise.resolve(_memChores.map(c => JSON.parse(JSON.stringify(c))));
+  return _idbGetAll(CHORES_STORE);
+}
+
+// ---- Chore logs (IndexedDB + _memChoreLogs mirror) ----
+async function dbPutChoreLog(e) {
+  const i = _memChoreLogs.findIndex(x => x.id === e.id);
+  const copy = JSON.parse(JSON.stringify(e));
+  if (i >= 0) _memChoreLogs[i] = copy; else _memChoreLogs.push(copy);
+  await _idbPut(CHORE_LOG_STORE, e);
+}
+function dbGetAllChoreLogs() {
+  if (_memChoreLogs && _memChoreLogs.length) return Promise.resolve(_memChoreLogs.map(e => JSON.parse(JSON.stringify(e))));
+  return _idbGetAll(CHORE_LOG_STORE);
+}
 
 
 // ---- Multi-user state ----
-let users = [];
-let currentUserId = null;
+// NOTE: declared with `var` (not `let`) so they become properties of `window`.
+// The Supabase sync layer lives in a separate <script> block and assigns into
+// window.users / window.currentUserId; with `let` those assignments would be
+// orphaned on the global object and never visible to selectUser().
+var users = [];
+var currentUserId = null;
 let managingUsers = false;
 let pinCallback = null;
 
@@ -2134,7 +2604,7 @@ function renderUserSelect() {
     const initial = getInitial(u.name);
     const removeBtn = managingUsers ? `<div class="user-card-remove" onclick="event.stopPropagation();removeUser('${u.id}')">✕</div>` : '';
     return `
-      <div class="user-card${managingUsers ? ' editing' : ''}" onclick="${managingUsers ? '' : `selectUser('${u.id}')`}" data-testid="user-card-${u.id}">
+      <div class="user-card${managingUsers ? ' editing' : ''}" onclick="${managingUsers ? '' : ((function(){try{return localStorage.getItem('pp_role')==='parent'}catch(_){return false}})() ? '' : `selectUser('${u.id}')`)}" data-testid="user-card-${u.id}">
         ${removeBtn}
         <div class="user-avatar" style="background:${color}">${initial}</div>
         <div class="user-card-name">${esc(u.name)}</div>
@@ -2190,14 +2660,24 @@ async function selectUser(id) {
   choreLogs = allChoreLogs.filter(cl => cl.userId === id);
 
   // Sync Save jar balance with goal history
+  // v=38: SAVE jar = goal total. Always reconcile both directions at load (goal is source of truth).
   const saveJar = jars.find(j => j.type === 'save');
   if (saveJar) {
-    const totalGoalSaved = goals.reduce((sum, g) => sum + g.history.reduce((s, h) => s + h.amount, 0), 0);
-    if (saveJar.balance < totalGoalSaved) {
+    const totalGoalSaved = Math.round(goals.reduce((sum, g) => sum + (Array.isArray(g.history) ? g.history.reduce((s, h) => s + (Number(h.amount)||0), 0) : 0), 0) * 100) / 100;
+    if (Math.abs((saveJar.balance||0) - totalGoalSaved) > 0.005) {
+      console.log('[PuzzlePig] Save jar reconciled:', saveJar.balance, '->', totalGoalSaved);
       saveJar.balance = totalGoalSaved;
       await dbPutJar(saveJar);
     }
   }
+  // v=40: backfill total_saved on every sign-in so parent always sees current jar total
+  try {
+    if (typeof recomputeAndPushTotalSaved === 'function') {
+      recomputeAndPushTotalSaved(id);
+    } else if (window.recomputeAndPushTotalSaved) {
+      window.recomputeAndPushTotalSaved(id);
+    }
+  } catch(e){ console.warn('[PuzzlePig] total_saved backfill skipped', e); }
 
   // Show the main app
   document.getElementById('userSelectScreen').style.display = 'none';
@@ -2250,6 +2730,13 @@ function switchUser() {
 let parentUnlocked = false; // Session-level unlock — no repeated PIN entry
 
 async function requestPinFor(action, extra) {
+  // Jar-edit actions (rename/add/withdraw) are not parent-gated — the child owns their jars.
+  // Skip the PIN flow entirely for these.
+  if (action === 'jar-edit-name' || action === 'jar-add-money' || action === 'jar-withdraw') {
+    if (action === 'jar-edit-name') return jarEditName(extra);
+    if (action === 'jar-add-money') return jarAddMoney(extra);
+    if (action === 'jar-withdraw') return jarWithdraw(extra);
+  }
   // If already unlocked this session, skip PIN prompt (except for initial setup)
   if (parentUnlocked && action !== 'setup' && action !== 'setup-confirm') {
     pinCallback = { action, extra };
@@ -2482,20 +2969,18 @@ async function doRemoveUser(id) {
 
 // ---- Init ----
 async function init() {
-  // Demo mode: always start fresh
-  try {
-    const delReq = indexedDB.deleteDatabase('PuzzlePigDB');
-    await new Promise((resolve, reject) => {
-      delReq.onsuccess = resolve;
-      delReq.onerror = resolve; // continue even if delete fails
-      delReq.onblocked = resolve;
-    });
-  } catch(e) {}
-
+  // ===== REAL MODE: persistent data, no demo wipe, no demo seed =====
   await openDB();
 
-  // Demo: auto-seed test data
-  await preloadTestData();
+  // ===== DEMO MODE SEED =====
+  // Always re-seed on every page load (demo wipes the DB at bootstrap).
+  if (window.__PP_DEMO__) {
+    try {
+      await window.__demoSeedAll();
+      console.log('[DEMO] data seeded');
+    } catch(e) { console.error('[DEMO] seed failed', e); }
+  }
+  // (preloadTestData() intentionally NOT called — kid avatars are created by the parent.)
 
   // Migrate: if goals exist but no users, create a default user
   const allGoals = await dbGetAll();
@@ -2518,10 +3003,28 @@ async function init() {
   document.getElementById('goalDate').min = today;
   document.getElementById('bottomNav').style.display = 'none';
 
-  // Check if this is the first launch
-  const hasSeenGuide = await dbGetSetting('hasSeenGuide');
-  if (!hasSeenGuide) {
-    openGuide();
+  // Check if this is the first launch.
+  // Skip the parent-oriented welcome guide on kid devices entirely.
+  const ppRole = (typeof localStorage !== 'undefined') ? localStorage.getItem('pp_role') : null;
+  const isKidDevice = (ppRole === 'child');
+  const isParentDevice = (ppRole === 'parent');
+  if (isKidDevice){
+    // Mark guide as seen so it never opens on kid devices
+    try { await dbPutSetting('hasSeenGuide', true); } catch(_){}
+    // On kid devices, the Supabase sync layer is responsible for routing
+    // (initKidMode → finishKidUnlock → selectUser). The rest of init() below
+    // assumes a parent-style setup flow (PIN gates, user-select screen) and
+    // will hide #app and show the parent picker, which on kid devices is
+    // CSS-hidden — producing a blank screen.
+    console.log('[PuzzlePig] init(): kid device detected, skipping parent setup flow');
+    return;
+  }
+
+  {
+    const hasSeenGuide = await dbGetSetting('hasSeenGuide');
+    if (!hasSeenGuide) {
+      openGuide();
+    }
   }
 
   // If no PIN set yet and no users, start the setup flow
@@ -3211,21 +3714,29 @@ async function submitSavingsEntry() {
 async function creditGoalsForUser(amount, date, note, userGoals) {
   let remaining = Math.round(amount * 100) / 100;
   if (remaining <= 0) return;
+  // Defensive: ensure every goal has a history array (older goals were saved without one)
+  for (const g of userGoals) { if (!Array.isArray(g.history)) g.history = []; }
   const activeGoals = userGoals.filter(g => {
-    const saved = g.history.reduce((s, h) => s + h.amount, 0);
-    return saved < g.goalAmount;
+    const saved = g.history.reduce((s, h) => s + (Number(h.amount)||0), 0);
+    return saved < (Number(g.goalAmount)||0);
   });
-  if (activeGoals.length === 0) return;
+  if (activeGoals.length === 0) { console.log('[PuzzlePig goal] no active goals to credit'); return; }
   for (const goal of activeGoals) {
     if (remaining <= 0) break;
-    const saved = goal.history.reduce((s, h) => s + h.amount, 0);
-    const needed = Math.round((goal.goalAmount - saved) * 100) / 100;
+    const saved = goal.history.reduce((s, h) => s + (Number(h.amount)||0), 0);
+    const needed = Math.round(((Number(goal.goalAmount)||0) - saved) * 100) / 100;
     if (needed <= 0) continue;
     const credit = Math.min(remaining, needed);
     goal.history.push({ amount: credit, date, note });
     await dbPut(goal);
+    console.log('[PuzzlePig goal] credited', goal.name, '+$' + credit, 'new total:', saved + credit);
     remaining = Math.round((remaining - credit) * 100) / 100;
   }
+  // Refresh UI if rendered
+  try {
+    if (typeof renderHome === 'function') renderHome();
+    if (typeof renderPuzzle === 'function') renderPuzzle();
+  } catch(_){}
 }
 
 // Credit goals with overflow: fills the target goal up to its cap, rolls surplus to the next active goal
@@ -3435,229 +3946,326 @@ function selectUserFromParent(userId) {
 async function renderParentSettings() {
   const view = document.getElementById('parentSettingsView');
 
-  // Ensure currentUserId is set for jar display — default to first user
   if (!currentUserId && users.length > 0) currentUserId = users[0].id;
-  // Load ALL chores and jars globally for parent view
   const allJarsGlobal = await dbGetAllJars();
-  jars = allJarsGlobal; // make global jars hold ALL jars so per-user filtering works below
+  jars = allJarsGlobal;
   const allChoresGlobal = await dbGetAllChores();
   allChoresGlobal.forEach(c => { if (!c.assignedTo) c.assignedTo = c.userId ? [c.userId] : []; });
   const allChoreLogsGlobal = await dbGetAllChoreLogs();
-  
-  // --- Pending Chores Section ---
-  const pendingLogs = allChoreLogsGlobal.filter(cl => cl.status === 'pending');
-  let pendingHTML = '';
-  if (pendingLogs.length > 0) {
-    const pendingItems = pendingLogs.map(cl => {
-      const c = allChoresGlobal.find(ch => ch.id === cl.choreId);
-      const user = users.find(u => u.id === cl.userId);
-      const uJars = allJarsGlobal.filter(j => j.userId === cl.userId);
-      const jarOpts = uJars.map(j => `<option value="${j.id}"${j.type === 'save' ? ' selected' : ''}>${esc(j.name)}</option>`).join('');
-      return `
-        <div class="parent-pending-item" style="flex-wrap:wrap;">
-          <div class="parent-pending-info">
-            <div class="parent-pending-name">${c ? esc(c.name) : 'Unknown'}</div>
-            <div class="parent-pending-detail">${user ? esc(user.name) : ''} &middot; $${c ? fmtNum(c.amount) : '0'}</div>
-          </div>
-          <div class="parent-pending-actions">
-            ${uJars.length > 0 ? `<select id="jarPick_${cl.id}" style="font-size:0.75rem;padding:4px 6px;border-radius:var(--radius-md);border:1px solid var(--border);" title="Choose jar">${jarOpts}</select>` : `<input type="hidden" id="jarPick_${cl.id}" value="">`}
-            <button class="parent-btn-approve" onclick="approveChoreFromParent('${cl.id}', document.getElementById('jarPick_${cl.id}').value)">Approve</button>
-            <button class="parent-btn-reject" onclick="rejectChoreFromParent('${cl.id}')">Reject</button>
-          </div>
-        </div>`;
-    }).join('');
-    pendingHTML = `
-      <div class="parent-section">
-        <div class="parent-section-header">
-          <div class="parent-section-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          </div>
-          <h3>Pending Approval (${pendingLogs.length})</h3>
-        </div>
-        ${pendingItems}
-      </div>`;
-  }
-  
-  // --- Chores Section (global list + inline user assignment) ---
-  let choreItems;
-  const hasChores = allChoresGlobal.length > 0;
-  if (hasChores) {
-    const choreList = allChoresGlobal.map(c => `
-    <div class="parent-chore-item">
-      <div class="parent-chore-info">
-        <div class="parent-chore-name">${esc(c.name)}</div>
-        <div class="parent-chore-meta">$${fmtNum(c.amount)} &middot; ${c.recurring === 'specific' ? formatChoreDays(c.choreDays) : c.recurring}</div>
-      </div>
-      <div class="parent-chore-actions">
-        <button class="btn btn-sm btn-outline" onclick="openEditChoreModal('${c.id}')">Edit</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteChoreFromParent('${c.id}')">Delete</button>
-      </div>
-    </div>`).join('');
+  const pendingLogsAll = allChoreLogsGlobal.filter(cl => cl.status === 'pending');
 
-    // User assignment grid (user names as headers, checkboxes per chore)
-    let assignGrid = '';
-    if (users.length > 0) {
-      const headerCells = users.map(u => `<th style="font-size:0.75rem;font-weight:600;text-align:center;padding:4px 6px;">${esc(u.name)}</th>`).join('');
-      const rows = allChoresGlobal.map(c => {
-        const cells = users.map(u => {
-          const checked = c.assignedTo.includes(u.id) ? 'checked' : '';
-          return `<td style="text-align:center;padding:4px 6px;"><input type="checkbox" ${checked} onchange="toggleChoreUser('${c.id}','${u.id}',this.checked)" style="width:18px;height:18px;accent-color:var(--purple-500,#8E6BBF);"></td>`;
-        }).join('');
-        return `<tr><td style="font-size:0.85rem;padding:4px 6px;">${esc(c.name)}</td>${cells}</tr>`;
-      }).join('');
-      assignGrid = `
-        <div style="margin-top:var(--space-3);border-top:1px solid var(--border);padding-top:var(--space-3);">
-          <div style="font-size:0.85rem;font-weight:600;color:var(--text-muted);margin-bottom:var(--space-2);">Assign Chores to Users</div>
-          <div style="overflow-x:auto;">
-            <table style="width:100%;border-collapse:collapse;">
-              <thead><tr><th style="text-align:left;font-size:0.75rem;padding:4px 6px;">Chore</th>${headerCells}</tr></thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-        </div>`;
-    }
-    choreItems = `
-      <div id="choreListCollapse" style="display:none;">
-        ${choreList}
-      </div>
-      <button class="btn btn-outline btn-block btn-sm" onclick="toggleChoreListCollapse()" id="choreCollapseBtn" style="margin-bottom:var(--space-2);font-size:0.8rem;">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" id="choreCollapseIcon"><path d="M6 9l6 6 6-6"/></svg>
-        <span id="choreCollapseLabel">Show Chore List (${allChoresGlobal.length})</span>
-      </button>
-      ${assignGrid}`;
-  } else {
-    choreItems = '<p style="color:var(--text-muted);font-size:0.9rem;padding:var(--space-3) 0;">No chores set up yet.</p>';
-  }
-  
-  // --- Jars Section (per-user) ---
-  let jarsContent = '';
-  if (users.length === 0) {
-    jarsContent = '<p style="color:var(--text-muted);font-size:0.9rem;">Add users first to set up jars.</p>';
-  } else {
-    const jarCards = users.map((u, idx) => {
-      const uJars = jars.filter(j => j.userId === u.id);
-      const c = getAvatarColor(idx);
-      if (uJars.length === 0) {
-        return `
-          <div style="margin-bottom:var(--space-3);padding:var(--space-3);background:var(--purple-50);border-radius:var(--radius-lg);">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:var(--space-2);">
-              <div style="width:24px;height:24px;border-radius:50%;background:${c};color:#fff;font-size:0.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;">${esc(u.name.charAt(0).toUpperCase())}</div>
-              <span style="font-weight:600;font-size:0.9rem;">${esc(u.name)}</span>
-            </div>
-            <p style="color:var(--text-muted);font-size:0.8rem;margin:0;">No jars yet</p>
-            <button class="btn btn-primary btn-sm" style="margin-top:var(--space-2);font-size:0.8rem;" onclick="setupJarsForUser('${u.id}')">Set Up Jars</button>
-          </div>`;
-      }
+  const isParentDevice = (function(){
+    try { return localStorage.getItem('pp_role') === 'parent'; } catch(_) { return false; }
+  })();
+
+  // ----- Per-child compact cards -----
+  const childCards = users.map((u, idx) => {
+    const color = getAvatarColor(idx);
+    const userPending = pendingLogsAll.filter(cl => cl.userId === u.id);
+    const userApproved = allChoreLogsGlobal.filter(cl => cl.userId === u.id && cl.status === 'approved');
+    const choreEarned = userApproved.reduce((sum, cl) => {
+      const ch = allChoresGlobal.find(x => x.id === cl.choreId);
+      return sum + (ch ? (Number(ch.amount)||0) : 0);
+    }, 0);
+    // v=40: prefer total_saved synced from kid's device (true jar balance); fallback to chore-approved sum
+    const totalEarned = (u.total_saved != null) ? Number(u.total_saved) : choreEarned;
+
+    const pendingRows = userPending.map(cl => {
+      const ch = allChoresGlobal.find(x => x.id === cl.choreId);
       return `
-        <div style="margin-bottom:var(--space-3);padding:var(--space-3);background:var(--purple-50);border-radius:var(--radius-lg);">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:var(--space-2);">
-            <div style="width:24px;height:24px;border-radius:50%;background:${c};color:#fff;font-size:0.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;">${esc(u.name.charAt(0).toUpperCase())}</div>
-            <span style="font-weight:600;font-size:0.9rem;flex:1;">${esc(u.name)}</span>
-            <button class="btn btn-sm btn-outline" style="font-size:0.7rem;padding:2px 8px;" onclick="setupJarsForUser('${u.id}')">Edit Jars</button>
-          </div>
-          <div style="display:flex;gap:var(--space-2);">
-            ${uJars.map(j => `
-              <div style="flex:1;text-align:center;padding:var(--space-2);background:var(--surface);border-radius:var(--radius-md);cursor:pointer;" onclick="parentJarAction('${j.id}','${u.id}')">
-                <div style="font-weight:600;font-size:0.75rem;color:var(--purple-700);text-transform:uppercase;">${esc(j.name || j.type)}</div>
-                <div style="font-family:var(--font-display);font-weight:700;font-size:0.95rem;">$${fmtNum(j.balance || 0)}</div>
-                <div style="font-size:0.65rem;color:var(--text-muted);margin-top:2px;">tap to add/withdraw</div>
-              </div>`).join('')}
-          </div>
+        <div class="pp32-pending-row">
+          <div class="name">${ch ? esc(ch.name) : 'Unknown chore'} <span class="amt">$${ch ? fmtNum(ch.amount) : '0'}</span></div>
+          <button class="btn pp32-btn-reject" onclick="event.stopPropagation();rejectChoreFromParent('${cl.id}')">Reject</button>
+          <button class="btn pp32-btn-approve" onclick="event.stopPropagation();approveChoreFromParent('${cl.id}','')">Approve</button>
         </div>`;
     }).join('');
-    jarsContent = jarCards;
-  }
-  
-  // --- Users Section ---
-  const userItems = users.map((u, idx) => {
-    const c = getAvatarColor(idx);
+
+    const safeName = esc(u.name).replace(/'/g,"\\'");
+    const pillEarned = `<span class="pp32-pill-earned">$${fmtNum(totalEarned)} earned</span>`;
+    const pillPending = userPending.length > 0
+      ? `<span class="pp32-pill-pending">${userPending.length} pending</span>`
+      : '';
+    // v=42: device-linked badge
+    const isLinked = !!u.device_claimed_at;
+    const pillDevice = isLinked
+      ? `<span class="pp32-pill-linked" title="Phone linked">● Phone linked</span>`
+      : `<span class="pp32-pill-unlinked" title="No phone linked">○ No phone</span>`;
+
+    const hasPending = userPending.length > 0;
+    // Desktop: card click opens modal. Mobile: card click toggles inline expansion.
     return `
-      <div class="parent-user-item">
-        <div class="parent-user-avatar" style="background:${c};">${esc(u.name.charAt(0).toUpperCase())}</div>
-        <div class="parent-user-name">${esc(u.name)}</div>
-        ${users.length > 1 ? `<button class="btn btn-sm btn-danger" onclick="removeUserFromParent('${u.id}')">Remove</button>` : ''}
+      <div class="pp32-kid ${hasPending ? 'has-pending' : ''}" id="kid_${u.id}">
+        <div class="pp32-kid-head" onclick="pp32KidCardClick('${u.id}')">
+          <div class="pp32-kid-avatar" style="background:${color};">${esc(u.name.charAt(0).toUpperCase())}</div>
+          <div class="pp32-kid-main">
+            <div class="pp32-kid-name">${esc(u.name)}</div>
+            <div class="pp32-kid-meta">${pillEarned}${pillPending}${pillDevice}</div>
+          </div>
+          <button class="pp32-menu-btn" onclick="event.stopPropagation();pp32ToggleMenu('${u.id}')" title="More">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          </button>
+          <svg class="pp32-kid-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="pp32-menu-pop" id="menu_${u.id}">
+          <button onclick="event.stopPropagation();pp32CloseMenus();unlinkKidDeviceFromParent('${u.id}','${safeName}')">Unlink phone</button>
+          <button class="danger" onclick="event.stopPropagation();pp32CloseMenus();removeUserFromParent('${u.id}','${safeName}')">Remove child</button>
+        </div>
+        <div class="pp32-kid-body">
+          ${pendingRows || `<p style="font-size:0.8rem;color:var(--text-muted);margin:0;">No pending chores.</p>`}
+        </div>
       </div>`;
   }).join('');
-  
-  // --- Avatar row for user selection ---
-  const avatarRow = users.length > 0 ? users.map((u, idx) => {
-    const c = getAvatarColor(idx);
-    return `
-      <button class="parent-avatar-pick" onclick="selectUserFromParent('${u.id}')" title="Go to ${esc(u.name)}'s page" style="background:${c};">
-        ${esc(u.name.charAt(0).toUpperCase())}
-      </button>`;
-  }).join('') : '';
+
+  const noChildrenHTML = users.length === 0
+    ? `<div class="pp32-kid" style="text-align:center;padding:var(--space-5);">
+         <p style="color:var(--text-muted);margin:0 0 var(--space-3);">No children added yet.</p>
+         <button class="btn btn-primary" onclick="addUserFromParent()">Add Your First Child</button>
+       </div>`
+    : '';
+
+  // ----- Compute weekly total (sum of chore amounts weighted by frequency) -----
+  let weeklyTotal = 0;
+  allChoresGlobal.forEach(c => {
+    const assignedCount = (c.assignedTo || []).length;
+    if (assignedCount === 0) return;
+    const amt = Number(c.amount) || 0;
+    let perWeek = 0;
+    if (c.recurring === 'daily') perWeek = 7;
+    else if (c.recurring === 'weekly') perWeek = 1;
+    else if (c.recurring === 'specific') perWeek = (c.choreDays || []).length;
+    else if (c.recurring === 'once') perWeek = 0;
+    weeklyTotal += amt * perWeek * assignedCount;
+  });
+
+  // ----- Compact chores list with mini-avatar assignment chips -----
+  let choreRows;
+  if (allChoresGlobal.length > 0) {
+    choreRows = allChoresGlobal.map(c => {
+      const scheduleText = c.recurring === 'specific' ? formatChoreDays(c.choreDays) : c.recurring;
+      const miniAvatars = users.length === 0
+        ? '<span style="font-size:0.72rem;color:var(--text-faint);">Add a child to assign</span>'
+        : users.map((u, idx) => {
+            const col = getAvatarColor(idx);
+            const isAssigned = c.assignedTo.includes(u.id);
+            return `<span class="pp32-mini-avatar ${isAssigned ? '' : 'off'}" style="background:${col};" onclick="toggleChoreUser('${c.id}','${u.id}',${!isAssigned})" title="${esc(u.name)}">${esc(u.name.charAt(0).toUpperCase())}</span>`;
+          }).join('');
+      return `
+        <div class="pp32-chore-row">
+          <div class="pp32-chore-main">
+            <div style="flex:1;min-width:140px;">
+              <div class="pp32-chore-name">${esc(c.name)}</div>
+              <div class="pp32-chore-meta">${scheduleText}</div>
+            </div>
+            <div class="pp32-mini-avatars">${miniAvatars}</div>
+          </div>
+          <div class="pp32-chore-pay">$${fmtNum(c.amount)}</div>
+          <button class="pp32-icon-btn" onclick="openEditChoreModal('${c.id}')" title="Edit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+          </button>
+          <button class="pp32-icon-btn danger" onclick="deleteChoreFromParent('${c.id}')" title="Delete">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </button>
+        </div>`;
+    }).join('');
+  } else {
+    choreRows = '<p style="color:var(--text-muted);font-size:0.88rem;padding:var(--space-4);text-align:center;margin:0;">No chores yet. Add one to get started.</p>';
+  }
 
   view.innerHTML = `
-    <div class="parent-page-header">
-      <button onclick="closeParentSettings()" style="background:none;border:none;cursor:pointer;padding:4px;margin-right:8px;color:var(--purple-600);">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-      </button>
-      <h2 style="flex:1;">Parent Settings</h2>
-    </div>
-    ${users.length > 0 ? `
-    <div class="parent-avatar-row">
-      <span style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">Go to page:</span>
-      <div class="parent-avatar-picks">${avatarRow}</div>
-    </div>` : ''}
-    
-    ${pendingHTML}
-    
-    <div class="parent-section">
-      <div class="parent-section-header">
-        <div class="parent-section-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12l2 2 4-4"/></svg>
+    <div class="pp32-page">
+      <div class="pp32-pagehead">
+        ${isParentDevice ? '<div></div>' : `<button onclick="closeParentSettings()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--purple-600);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>`}
+        <h2>Parent Settings</h2>
+        <div style="width:30px;"></div>
+      </div>
+
+      <div class="pp32-section-label">
+        <span>Children${users.length > 0 ? ' ('+users.length+')' : ''}</span>
+        ${users.length > 0 ? '<a onclick="addUserFromParent()">+ Add child</a>' : ''}
+      </div>
+      <div class="pp32-children-grid">
+        ${noChildrenHTML}${childCards}
+      </div>
+
+      <div class="pp32-section-label">
+        <span>Chores${allChoresGlobal.length > 0 ? ' ('+allChoresGlobal.length+')' : ''}</span>
+        <a onclick="openAddChoreFromParent()">+ Add chore</a>
+      </div>
+      <div class="pp32-chores-box">
+        <div class="pp32-chore-headers">
+          <div class="col-main">Chore</div>
+          <div class="col-assigned">Assigned</div>
+          <div class="col-pay">Pay</div>
+          <div class="col-actions">Actions</div>
         </div>
-        <h3>Chores</h3>
-      </div>
-      <div class="parent-card">
-        ${choreItems}
-        <div style="margin-top:var(--space-3);">
-          <button class="btn btn-primary btn-block btn-sm" onclick="openAddChoreFromParent()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add New Chore
-          </button>
-        </div>
-      </div>
-    </div>
-    
-    <div class="parent-section" data-section="jars">
-      <div class="parent-section-header">
-        <div class="parent-section-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2h8l1 4H7L8 2z"/><rect x="5" y="6" width="14" height="14" rx="2"/><path d="M9 11h6M9 15h4"/></svg>
-        </div>
-        <h3>Jars</h3>
-      </div>
-      <div class="parent-card">
-        ${jarsContent}
-      </div>
-    </div>
-    
-    <div class="parent-section" data-section="users">
-      <div class="parent-section-header">
-        <div class="parent-section-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-        </div>
-        <h3>Users</h3>
-      </div>
-      <div class="parent-card">
-        ${userItems}
-        <div style="margin-top:var(--space-3);">
-          <button class="btn btn-outline btn-block btn-sm" onclick="addUserFromParent()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add User
-          </button>
+        ${choreRows}
+        <div class="pp32-chore-footer">
+          <span>${allChoresGlobal.length} chore${allChoresGlobal.length===1?'':'s'}${weeklyTotal > 0 ? ' \u00b7 $' + fmtNum(weeklyTotal) + ' / week max' : ''}</span>
+          <a onclick="openAddChoreFromParent()">+ Add chore</a>
         </div>
       </div>
-    </div>
-    
-    <div class="parent-section" style="margin-top:var(--space-6);">
-      <button class="btn btn-outline btn-block btn-sm" onclick="changePin()" style="color:var(--text-muted);">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        Change PIN
-      </button>
+
+      <div class="pp32-pin-row" onclick="changePin()">
+        <div class="pp32-pin-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="pp32-pin-text">
+          <div class="pp32-pin-title">Parent PIN</div>
+          <div class="pp32-pin-sub">Used to enter Parent Settings</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--text-muted);"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
     </div>
   `;
+}
+
+// v=32: kid card expand/collapse + 3-dot menu
+function pp32ToggleKid(id){
+  const el = document.getElementById('kid_'+id);
+  if (!el) return;
+  el.classList.toggle('expanded');
+  pp32CloseMenus();
+}
+// v=34: on desktop open modal, on mobile toggle inline
+function pp32KidCardClick(id){
+  if (window.matchMedia('(min-width: 720px)').matches) {
+    pp32OpenKidModal(id);
+  } else {
+    pp32ToggleKid(id);
+  }
+}
+async function pp32OpenKidModal(id){
+  const u = users.find(x => x.id === id);
+  if (!u) return;
+  const idx = users.findIndex(x => x.id === id);
+  const color = getAvatarColor(idx);
+  const allChoresGlobal = await dbGetAllChores();
+  allChoresGlobal.forEach(c => { if (!c.assignedTo) c.assignedTo = c.userId ? [c.userId] : []; });
+  const allChoreLogsGlobal = await dbGetAllChoreLogs();
+  const userPending = allChoreLogsGlobal.filter(cl => cl.userId === u.id && cl.status === 'pending');
+  const userApproved = allChoreLogsGlobal.filter(cl => cl.userId === u.id && cl.status === 'approved');
+  const choreEarned = userApproved.reduce((sum, cl) => {
+    const ch = allChoresGlobal.find(x => x.id === cl.choreId);
+    return sum + (ch ? (Number(ch.amount)||0) : 0);
+  }, 0);
+  // v=40: prefer synced total_saved (true jar balance) over chore-approved sum
+  const totalEarned = (u.total_saved != null) ? Number(u.total_saved) : choreEarned;
+  const assignedChores = allChoresGlobal.filter(ch => Array.isArray(ch.assignedTo) && ch.assignedTo.includes(u.id));
+
+  const pendingHTML = userPending.length === 0
+    ? '<p style="font-size:0.85rem;color:var(--text-muted);margin:0;">No pending chores to approve.</p>'
+    : userPending.map(cl => {
+        const ch = allChoresGlobal.find(x => x.id === cl.choreId);
+        return `<div class="pp32-pending-row">
+          <div class="name">${ch ? esc(ch.name) : 'Unknown chore'} <span class="amt">$${ch ? fmtNum(ch.amount) : '0'}</span></div>
+          <button class="btn pp32-btn-reject" onclick="pp32HandleModalAction('reject','${cl.id}','${id}')">Reject</button>
+          <button class="btn pp32-btn-approve" onclick="pp32HandleModalAction('approve','${cl.id}','${id}')">Approve</button>
+        </div>`;
+      }).join('');
+
+  const assignedHTML = assignedChores.length === 0
+    ? '<p style="font-size:0.85rem;color:var(--text-muted);margin:0;">No chores assigned yet.</p>'
+    : assignedChores.map(ch => `<div style="font-size:0.85rem;padding:4px 0;display:flex;justify-content:space-between;"><span>${esc(ch.name)}</span><span style="color:var(--text-muted);">$${fmtNum(ch.amount)} \u00b7 ${ch.recurring}</span></div>`).join('');
+
+  const safeName = esc(u.name).replace(/'/g,"\\'");
+
+  const html = `
+    <div class="pp32-modal-backdrop" id="pp32KidModal" onclick="if(event.target===this)pp32CloseKidModal()">
+      <div class="pp32-modal">
+        <div class="pp32-modal-head">
+          <div class="pp32-kid-avatar" style="background:${color};">${esc(u.name.charAt(0).toUpperCase())}</div>
+          <div>
+            <h3>${esc(u.name)}</h3>
+            <div style="display:flex;gap:6px;margin-top:4px;"><span class="pp32-pill-earned">$${fmtNum(totalEarned)} earned</span>${userPending.length > 0 ? `<span class="pp32-pill-pending">${userPending.length} pending</span>` : ''}</div>
+          </div>
+          <button class="pp32-modal-close" onclick="pp32CloseKidModal()" aria-label="Close">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="pp32-modal-body">
+          <div class="pp32-modal-section">
+            <h4>Pending approval${userPending.length > 0 ? ' ('+userPending.length+')' : ''}</h4>
+            ${pendingHTML}
+          </div>
+          <div class="pp32-modal-section">
+            <h4>Assigned chores (${assignedChores.length})</h4>
+            ${assignedHTML}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  const existing = document.getElementById('pp32KidModal');
+  if (existing) existing.remove();
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function pp32CloseKidModal(){
+  const m = document.getElementById('pp32KidModal');
+  if (m) m.remove();
+}
+// v=35: keep modal open after approve/reject, re-render in place
+async function pp32HandleModalAction(action, logId, kidId){
+  try {
+    if (action === 'approve') { await approveChoreFromParent(logId, ''); }
+    else if (action === 'reject') { await rejectChoreFromParent(logId); }
+  } catch(e) { console.warn('[pp32] modal action err', e); }
+  // re-open modal with fresh data; if no more pending, leave it open showing empty state
+  pp32CloseKidModal();
+  await pp32OpenKidModal(kidId);
+}
+function pp32ToggleMenu(id){
+  const menu = document.getElementById('menu_'+id);
+  if (!menu) return;
+  const wasOpen = menu.classList.contains('open');
+  pp32CloseMenus();
+  if (!wasOpen) menu.classList.add('open');
+}
+function pp32CloseMenus(){
+  document.querySelectorAll('.pp32-menu-pop.open').forEach(m => m.classList.remove('open'));
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.pp32-menu-pop') && !e.target.closest('.pp32-menu-btn')) {
+    pp32CloseMenus();
+  }
+});
+
+// ===== Parent-side: kid device management =====
+async function unlinkKidDeviceFromParent(kidId, kidName){
+  if (!window.ppSync || typeof window.ppSync.unlinkKidDevice !== 'function'){
+    alert('Sync not ready yet. Please wait a moment and try again.');
+    return;
+  }
+  const ok = confirm('Unlink ' + (kidName || 'this kid') + "'s phone?\n\nThe phone will drop back to the 'Who are you?' screen. They (or a new kid) can claim it again.");
+  if (!ok) return;
+  const res = await window.ppSync.unlinkKidDevice(kidId);
+  if (res && res.ok){
+    alert('Phone unlinked. ' + (kidName || 'The kid') + "'s device will return to the picker.");
+    try { await renderParentSettings(); } catch(_){}
+  } else {
+    alert('Could not unlink: ' + ((res && res.error) || 'unknown error'));
+  }
+}
+
+async function setKidPinFromParent(kidId){
+  const u = users.find(x => x.id === kidId);
+  if (!u) return;
+  const current = u.pin || '';
+  const v = prompt('Set a PIN for ' + (u.name || 'this kid') + "\n\n(Numbers only, 3–8 digits. Leave blank to clear the PIN.)", current);
+  if (v === null) return; // cancelled
+  const trimmed = (v || '').trim();
+  if (trimmed && !/^[0-9]{3,8}$/.test(trimmed)){
+    alert('PIN must be 3–8 digits, numbers only.');
+    return;
+  }
+  u.pin = trimmed;
+  try {
+    if (typeof dbPutUser === 'function') await dbPutUser(u);
+    await renderParentSettings();
+  } catch(e){
+    console.warn('[PuzzlePig] setKidPinFromParent failed', e);
+    alert('Could not save PIN. Please try again.');
+  }
 }
 
 // Parent Settings action wrappers (no PIN needed — already unlocked)
@@ -4162,38 +4770,66 @@ function jarSVG(color, size) {
 function jarVisualSVG(fillPct, color, lidColor, w, h) {
   w = w || 90; h = h || 120;
   const pct = Math.max(0, Math.min(100, fillPct || 0));
-  // Jar body bounds (inside the SVG viewBox 0 0 90 120)
-  // Lid: y 4-18, Neck: y 18-28, Body: y 28-110, bottom curve at 110
-  // Fill area: body interior from y=106 up to y=30 based on pct
-  const bodyTop = 32;
-  const bodyBot = 106;
+  // Mason-jar style with rounded shoulders and a banded lid
+  // viewBox 0 0 90 120. Body: y 30 (shoulder top) to 112 (bottom curve)
+  const bodyTop = 36;
+  const bodyBot = 108;
   const fillH = ((bodyBot - bodyTop) * pct) / 100;
   const fillY = bodyBot - fillH;
   const lid = lidColor || color || '#7C3AED';
   const fill = color || '#7C3AED';
-  // lighter tint for glass highlight
+  // Derive a slightly darker shade for the lid band (simple hex darken)
+  function darken(hex){
+    if(!hex || hex[0] !== '#' || hex.length !== 7) return hex;
+    const r = Math.max(0, parseInt(hex.slice(1,3),16) - 28);
+    const g = Math.max(0, parseInt(hex.slice(3,5),16) - 28);
+    const b = Math.max(0, parseInt(hex.slice(5,7),16) - 28);
+    return '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+  }
+  const lidDark = darken(lid);
+  const uid = Math.random().toString(36).slice(2,8);
   return `<svg width="${w}" height="${h}" viewBox="0 0 90 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <!-- Jar body (glass) -->
-    <path d="M22 28 C22 28 18 32 18 38 L18 102 C18 108 24 112 32 112 L58 112 C66 112 72 108 72 102 L72 38 C72 32 68 28 68 28 Z" fill="rgba(220,235,245,0.45)" stroke="rgba(160,195,215,0.6)" stroke-width="1.5"/>
-    <!-- Fill level -->
-    ${pct > 0 ? `<clipPath id="jarClip"><path d="M19 32 C19 32 18 34 18 38 L18 102 C18 108 24 112 32 112 L58 112 C66 112 72 108 72 102 L72 38 C72 34 71 32 71 32 Z"/></clipPath>
-    <rect x="18" y="${fillY}" width="54" height="${fillH + 8}" fill="${fill}" opacity="0.25" clip-path="url(#jarClip)"/>
-    <rect x="18" y="${fillY}" width="54" height="${Math.min(fillH, 6)}" fill="${fill}" opacity="0.10" clip-path="url(#jarClip)" rx="2"/>` : ''}
-    <!-- Glass shine -->
-    <path d="M26 36 C26 36 24 42 24 54 L24 78" stroke="rgba(255,255,255,0.7)" stroke-width="2.5" stroke-linecap="round"/>
-    <path d="M29 36 C29 36 28 40 28 48" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-linecap="round"/>
-    <!-- Lid -->
-    <rect x="28" y="8" width="34" height="12" rx="3" fill="${lid}" opacity="0.85"/>
-    <rect x="30" y="10" width="12" height="3" rx="1.5" fill="rgba(255,255,255,0.35)"/>
-    <!-- Neck -->
-    <path d="M30 20 L30 28 L22 28" stroke="rgba(160,195,215,0.6)" stroke-width="1.5" fill="none"/>
-    <path d="M60 20 L60 28 L68 28" stroke="rgba(160,195,215,0.6)" stroke-width="1.5" fill="none"/>
-    <line x1="28" y1="20" x2="62" y2="20" stroke="rgba(160,195,215,0.5)" stroke-width="1"/>
-    ${pct > 0 ? `<!-- Coins at bottom -->
-    <ellipse cx="38" cy="${Math.max(fillY + 4, bodyBot - 8)}" rx="6" ry="3" fill="${fill}" opacity="0.45"/>
-    <ellipse cx="52" cy="${Math.max(fillY + 6, bodyBot - 5)}" rx="5" ry="2.5" fill="${fill}" opacity="0.35"/>` : ''}
+    <defs>
+      <linearGradient id="glass${uid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.55)"/>
+        <stop offset="60%" stop-color="rgba(220,235,245,0.30)"/>
+        <stop offset="100%" stop-color="rgba(180,210,225,0.45)"/>
+      </linearGradient>
+      <linearGradient id="liquid${uid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${fill}" stop-opacity="0.55"/>
+        <stop offset="100%" stop-color="${fill}" stop-opacity="0.85"/>
+      </linearGradient>
+      <clipPath id="jarClip">
+        <path d="M16 36 C16 32 19 30 22 30 L24 30 C25 28 26 27 28 27 L62 27 C64 27 65 28 66 30 L68 30 C71 30 74 32 74 36 L74 102 C74 108 68 113 58 113 L32 113 C22 113 16 108 16 102 Z"/>
+      </clipPath>
+    </defs>
+    <!-- Jar body (glass) with rounded shoulders -->
+    <path d="M16 36 C16 32 19 30 22 30 L24 30 C25 28 26 27 28 27 L62 27 C64 27 65 28 66 30 L68 30 C71 30 74 32 74 36 L74 102 C74 108 68 113 58 113 L32 113 C22 113 16 108 16 102 Z"
+      fill="url(#glass${uid})" stroke="rgba(120,160,185,0.55)" stroke-width="1.5"/>
+    ${pct > 0 ? `
+    <!-- Liquid fill (clipped to jar interior) -->
+    <rect x="14" y="${fillY}" width="62" height="${fillH + 10}" fill="url(#liquid${uid})" clip-path="url(#jarClip)"/>
+    <!-- Wavy surface highlight -->
+    <path d="M16 ${fillY} Q 25 ${fillY - 2}, 34 ${fillY} T 52 ${fillY} T 74 ${fillY}" stroke="${fill}" stroke-width="1.5" fill="none" opacity="0.6" clip-path="url(#jarClip)"/>
+    ` : ''}
+    <!-- Glass shine, left -->
+    <path d="M22 42 C20 50 20 70 21 88" stroke="rgba(255,255,255,0.75)" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M26 42 C25 48 25 60 25 70" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- Glass shine, right small -->
+    <path d="M68 50 C69 60 69 80 67 95" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" stroke-linecap="round"/>
+    <!-- Lid (two-tone band) -->
+    <rect x="20" y="10" width="50" height="18" rx="4" fill="${lid}"/>
+    <rect x="20" y="10" width="50" height="6" rx="4" fill="${lidDark}" opacity="0.85"/>
+    <rect x="22" y="12" width="14" height="2.5" rx="1.25" fill="rgba(255,255,255,0.45)"/>
+    <!-- Lid threads / ridge under lid -->
+    <line x1="20" y1="28" x2="70" y2="28" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
+    <line x1="20" y1="30" x2="70" y2="30" stroke="rgba(255,255,255,0.35)" stroke-width="0.8"/>
     ${pct >= 100 ? `<!-- Sparkles for full jar -->
-    <circle cx="30" cy="42" r="2" fill="#FCD34D" opacity="0.8"/><circle cx="60" cy="38" r="1.5" fill="#FCD34D" opacity="0.7"/><circle cx="50" cy="50" r="1.8" fill="#FCD34D" opacity="0.6"/>` : ''}
+    <circle cx="30" cy="48" r="2" fill="#FCD34D" opacity="0.9"/>
+    <circle cx="62" cy="44" r="1.6" fill="#FCD34D" opacity="0.8"/>
+    <circle cx="52" cy="58" r="1.8" fill="#FCD34D" opacity="0.7"/>
+    <path d="M30 46 L30 50 M28 48 L32 48" stroke="#FCD34D" stroke-width="0.8" stroke-linecap="round" opacity="0.9"/>
+    ` : ''}
   </svg>`;
 }
 
@@ -4227,12 +4863,14 @@ function renderJarDetail() {
         const amtStr = (tx.amount >= 0 ? '+' : '-') + '$' + fmtNum(Math.abs(tx.amount));
         const typeLabel = tx.type === 'chore' ? 'Chore' : tx.type === 'transfer' ? 'Transfer' : 'Manual';
         return `
-          <div class="jar-tx-item">
-            <div>
+          <div class="jar-tx-item" style="display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;min-width:0;">
               <div>${esc(tx.note || typeLabel)}</div>
               <div class="jar-tx-note">${dateStr} &middot; ${typeLabel}</div>
             </div>
             <span class="${amtClass}">${amtStr}</span>
+            <button class="btn-icon" title="Edit" onclick="editJarTx('${tx.id}')" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:4px;" aria-label="Edit transaction"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
+            <button class="btn-icon" title="Delete" onclick="deleteJarTx('${tx.id}')" style="background:transparent;border:none;color:#DC2626;cursor:pointer;padding:4px;" aria-label="Delete transaction"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           </div>
         `;
       }).join('');
@@ -4267,6 +4905,10 @@ function renderJarDetail() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           Withdraw
         </button>
+        <button class="btn-sm btn-outline" style="flex:1;color:var(--purple-600,#8E6BBF);" onclick="jarStartTransfer('${jar.id}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><path d="M7 17l10-10M7 7h10v10"/></svg>
+          Move to another jar
+        </button>
       </div>
       <div id="jarEditArea"></div>
     </div>
@@ -4285,14 +4927,138 @@ function backFromJarDetail() {
   showView('homeView');
 }
 
+// v=38: edit a jar transaction (amount + note). Recomputes jar balance from transactions.
+function editJarTx(txId) {
+  const tx = jarTxs.find(t => t.id === txId);
+  if (!tx) return;
+  const isPositive = (tx.amount || 0) >= 0;
+  const absAmt = Math.abs(tx.amount || 0);
+  const area = document.getElementById('jarEditArea');
+  if (!area) return;
+  area.innerHTML = `
+    <div style="margin-bottom:var(--space-2);">
+      <label class="form-label">Edit transaction amount (${isPositive ? 'deposit' : 'withdrawal'})</label>
+      <input type="number" id="editTxAmount" class="form-input" value="${absAmt}" min="0.01" step="0.01" inputmode="decimal">
+    </div>
+    <div style="margin-bottom:var(--space-2);">
+      <label class="form-label">Note</label>
+      <input type="text" id="editTxNote" class="form-input" value="${esc(tx.note || '')}">
+    </div>
+    <div style="display:flex;gap:var(--space-2);">
+      <button class="btn-primary" style="flex:1;" onclick="saveJarTxEdit('${txId}', ${isPositive})">Save</button>
+      <button class="btn-outline btn-sm" onclick="document.getElementById('jarEditArea').innerHTML=''">Cancel</button>
+    </div>`;
+  setTimeout(()=>{ const el = document.getElementById('editTxAmount'); if (el) el.focus(); }, 50);
+}
+
+async function saveJarTxEdit(txId, isPositive) {
+  const tx = jarTxs.find(t => t.id === txId);
+  if (!tx) return;
+  const newAmtAbs = Math.round((parseFloat(document.getElementById('editTxAmount').value) || 0) * 100) / 100;
+  if (newAmtAbs <= 0) { alert('Enter an amount greater than 0.'); return; }
+  const newNote = document.getElementById('editTxNote').value.trim() || tx.note || 'Manual';
+  tx.amount = isPositive ? newAmtAbs : -newAmtAbs;
+  tx.note = newNote;
+  await dbPutJarTx(tx);
+  await recomputeJarFromTx(tx.jarId);
+  document.getElementById('jarEditArea').innerHTML = '';
+  renderJarDetail();
+  try { if (typeof renderHome === 'function') renderHome(); } catch(_){}
+}
+
+async function deleteJarTx(txId) {
+  const tx = jarTxs.find(t => t.id === txId);
+  if (!tx) return;
+  if (!confirm('Delete this transaction? The jar balance will be recalculated.')) return;
+  await dbDeleteJarTx(tx.id);
+  jarTxs = jarTxs.filter(t => t.id !== txId);
+  await recomputeJarFromTx(tx.jarId);
+  renderJarDetail();
+  try { if (typeof renderHome === 'function') renderHome(); } catch(_){}
+}
+
+// v=38: Self-healing — recompute jar.balance from sum of its transactions.
+// For SAVE jar, also reconcile via syncSaveJarBalance afterward.
+async function recomputeJarFromTx(jarId) {
+  const jar = jars.find(j => j.id === jarId);
+  if (!jar) return;
+  const txSum = jarTxs
+    .filter(t => t.jarId === jarId)
+    .reduce((s, t) => s + (Number(t.amount) || 0), 0);
+  jar.balance = Math.round(txSum * 100) / 100;
+  await dbPutJar(jar);
+  if (jar.type === 'save') {
+    // Goal totals are the real source of truth for save jar — re-sync after
+    try { await syncSaveJarBalance(); } catch(_){}
+  }
+}
+
+// ===== JAR TRANSFER (child manually moves money between own jars) =====
+function jarStartTransfer(jarId){
+  const srcJar = jars.find(j => j.id === jarId);
+  if (!srcJar) return;
+  const userJars = jars.filter(j => j.userId === srcJar.userId && j.id !== jarId);
+  if (userJars.length === 0){
+    const area = document.getElementById('jarEditArea');
+    area.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;padding:var(--space-2);">No other jars to move money to.</p>';
+    return;
+  }
+  const targetOpts = userJars.map(j => `<option value="${j.id}">${esc(j.name)} ($${fmtNum(j.balance||0)})</option>`).join('');
+  const area = document.getElementById('jarEditArea');
+  area.innerHTML = `
+    <div style="margin-bottom:var(--space-2);">
+      <label class="form-label">Move money from <b>${esc(srcJar.name)}</b> to:</label>
+      <select id="jarTransferTarget" class="form-input">${targetOpts}</select>
+    </div>
+    <div style="margin-bottom:var(--space-2);">
+      <label class="form-label">Amount (available: $${fmtNum(srcJar.balance||0)})</label>
+      <input type="number" id="jarTransferAmount" class="form-input" placeholder="0.00" min="0.01" max="${srcJar.balance||0}" step="0.01" inputmode="decimal">
+    </div>
+    <div style="display:flex;gap:var(--space-2);">
+      <button class="btn-primary" style="flex:1;" onclick="jarDoTransfer('${jarId}')">Move</button>
+      <button class="btn-outline btn-sm" onclick="document.getElementById('jarEditArea').innerHTML=''">Cancel</button>
+    </div>`;
+  setTimeout(()=>{ const el = document.getElementById('jarTransferAmount'); if (el) el.focus(); }, 50);
+}
+
+async function jarDoTransfer(sourceJarId){
+  const src = jars.find(j => j.id === sourceJarId);
+  const targetSel = document.getElementById('jarTransferTarget');
+  const amtInput = document.getElementById('jarTransferAmount');
+  if (!src || !targetSel || !amtInput) return;
+  const tgt = jars.find(j => j.id === targetSel.value);
+  const amt = Math.round((parseFloat(amtInput.value) || 0) * 100) / 100;
+  if (!tgt) { alert('Pick a jar to move money to.'); return; }
+  if (amt <= 0) { alert('Enter an amount greater than 0.'); return; }
+  if (amt > (src.balance || 0)) { alert('Not enough in ' + src.name + '.'); return; }
+  src.balance = Math.round(((src.balance||0) - amt) * 100) / 100;
+  tgt.balance = Math.round(((tgt.balance||0) + amt) * 100) / 100;
+  const now = new Date().toISOString();
+  const txOut = { id: 'jartx_' + Date.now() + '_o', jarId: src.id, userId: src.userId, amount: -amt, type: 'transfer', note: 'To ' + tgt.name, date: now, createdAt: now };
+  const txIn  = { id: 'jartx_' + Date.now() + '_i', jarId: tgt.id, userId: tgt.userId, amount:  amt, type: 'transfer', note: 'From ' + src.name, date: now, createdAt: now };
+  await dbPutJar(src);
+  await dbPutJar(tgt);
+  await dbPutJarTx(txOut);
+  await dbPutJarTx(txIn);
+  jarTxs.push(txOut, txIn);
+  renderJarDetail();
+  if (typeof renderHome === 'function') renderHome();
+}
+try { window.jarStartTransfer = jarStartTransfer; window.jarDoTransfer = jarDoTransfer; } catch(_){}
+
 /* Jar edit actions — called after PIN unlock */
 async function jarEditName(jarId) {
   const jar = jars.find(j => j.id === jarId);
   if (!jar) return;
+  // Save jar is tied to the goal — warn the user before letting them rename
+  if (jar.type === 'save'){
+    const ok = confirm('Heads up: this is the Save jar. Any money in it goes toward your goal. Renaming it changes the label only — the goal connection stays the same.\n\nContinue?');
+    if (!ok) return;
+  }
   const area = document.getElementById('jarEditArea');
   area.innerHTML = `
-    <div style="display:flex;gap:var(--space-2);align-items:center;">
-      <input type="text" id="jarRenameInput" class="form-input" value="${esc(jar.name)}" style="flex:1;">
+    <div style="display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap;">
+      <input type="text" id="jarRenameInput" class="form-input" value="${esc(jar.name)}" style="flex:1;min-width:140px;">
       <button class="btn-primary" style="padding:8px 16px;" onclick="saveJarRename('${jarId}')">Save</button>
       <button class="btn-outline btn-sm" onclick="document.getElementById('jarEditArea').innerHTML=''">Cancel</button>
     </div>`;
@@ -4333,18 +5099,28 @@ async function saveJarAdd(jarId) {
   const amt = parseFloat(document.getElementById('jarAddAmountInput').value);
   if (!amt || amt <= 0) return;
   const note = document.getElementById('jarAddNoteInput').value.trim() || 'Manual deposit';
-  jar.balance = Math.round(((jar.balance || 0) + amt) * 100) / 100;
-  await dbPutJar(jar);
+  const today = new Date().toISOString().split('T')[0];
+  // v=38: For the SAVE jar, the goal is the source of truth.
+  // Credit goals first, then sync jar balance from goal totals (no double counting).
+  if (jar.type === 'save') {
+    try { await creditGoalsWithOverflow(amt, today, note); } catch(e) { console.warn('[PuzzlePig] creditGoalsWithOverflow err', e); }
+    await syncSaveJarBalance();
+  } else {
+    jar.balance = Math.round(((jar.balance || 0) + amt) * 100) / 100;
+    await dbPutJar(jar);
+  }
   const tx = {
     id: 'tx_' + Date.now(),
     jarId, userId: currentUserId, amount: amt,
     type: 'manual', note,
-    date: new Date().toISOString().split('T')[0],
+    date: today,
     createdAt: new Date().toISOString(),
   };
   await dbPutJarTx(tx);
   jarTxs.push(tx);
   renderJarDetail();
+  try { if (typeof renderHome === 'function') renderHome(); } catch(_){}
+  try { if (typeof renderPuzzle === 'function') renderPuzzle(); } catch(_){}
 }
 
 async function jarWithdraw(jarId) {
@@ -4372,18 +5148,51 @@ async function saveJarWithdraw(jarId) {
   if (!jar) return;
   const amt = parseFloat(document.getElementById('jarWithdrawAmountInput').value);
   if (!amt || amt <= 0 || amt > (jar.balance || 0)) return;
-  jar.balance = Math.round(((jar.balance || 0) - amt) * 100) / 100;
-  await dbPutJar(jar);
+  const today = new Date().toISOString().split('T')[0];
+  const withdrawNote = document.getElementById('jarWithdrawNoteInput').value.trim() || 'Withdrawal';
+  // v=38: For the SAVE jar, debit goals then sync jar from goals (single source of truth)
+  if (jar.type === 'save') {
+    try { await debitGoalsFromSaveJar(amt, today, withdrawNote); } catch(e) { console.warn('[PuzzlePig] debitGoalsFromSaveJar err', e); }
+    await syncSaveJarBalance();
+  } else {
+    jar.balance = Math.round(((jar.balance || 0) - amt) * 100) / 100;
+    await dbPutJar(jar);
+  }
   const tx = {
     id: 'tx_' + Date.now(),
     jarId, userId: currentUserId, amount: -amt,
-    type: 'manual', note: document.getElementById('jarWithdrawNoteInput').value.trim() || 'Withdrawal',
-    date: new Date().toISOString().split('T')[0],
+    type: 'manual', note: withdrawNote,
+    date: today,
     createdAt: new Date().toISOString(),
   };
   await dbPutJarTx(tx);
   jarTxs.push(tx);
   renderJarDetail();
+  try { if (typeof renderHome === 'function') renderHome(); } catch(_){}
+  try { if (typeof renderPuzzle === 'function') renderPuzzle(); } catch(_){}
+}
+
+// v=37: pull money back out of goal history (newest contributions first) when withdrawing from Save jar
+async function debitGoalsFromSaveJar(amount, date, note) {
+  let remaining = Math.round(amount * 100) / 100;
+  if (remaining <= 0) return;
+  // Walk all goals, collect history entries with positive amount, sorted newest first
+  const entries = [];
+  for (const g of goals) {
+    if (!Array.isArray(g.history)) continue;
+    g.history.forEach((h, idx) => {
+      if ((Number(h.amount)||0) > 0) entries.push({ goal: g, idx, amount: Number(h.amount), date: h.date || '' });
+    });
+  }
+  entries.sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+  for (const e of entries) {
+    if (remaining <= 0) break;
+    const take = Math.min(remaining, e.amount);
+    // Record a negative entry rather than mutating original (keeps audit trail)
+    e.goal.history.push({ amount: -take, date, note: note + ' (withdraw)' });
+    await dbPut(e.goal);
+    remaining = Math.round((remaining - take) * 100) / 100;
+  }
 }
 
 // ---- Auto-create default jars for new users ----
@@ -4922,13 +5731,14 @@ function closeMgmt() {
   renderChoresView();
 }
 
+// v=32: hidden checkboxes still hold the assignment list (for edit case),
+// but UI is removed. New chores default to [] (universal/unassigned).
 function populateChoreUserCheckboxes(selectedIds) {
   const container = document.getElementById('choreUserCheckboxes');
   if (!container) return;
-  container.innerHTML = users.map(u => {
-    const checked = selectedIds.includes(u.id) ? 'checked' : '';
-    return `<label><input type="checkbox" value="${u.id}" ${checked}> ${esc(u.name)}</label>`;
-  }).join('');
+  container.innerHTML = (selectedIds || []).map(id =>
+    `<input type="checkbox" value="${id}" checked style="display:none;">`
+  ).join('');
 }
 
 function getCheckedChoreUsers() {
@@ -4948,7 +5758,9 @@ function openAddChoreModal() {
   });
   document.getElementById('choreDaysPicker').style.display = 'none';
   document.querySelectorAll('#choreDaysPicker input').forEach(cb => cb.checked = false);
-  populateChoreUserCheckboxes(users.map(u => u.id)); // default: all users
+  populateChoreUserCheckboxes([]); // v=32: new chores start unassigned (universal)
+  const hint = document.getElementById('choreAssignHint');
+  if (hint) hint.style.display = '';
   document.getElementById('addChoreModal').classList.add('active');
 }
 
@@ -4975,6 +5787,9 @@ async function openEditChoreModal(id) {
     cb.checked = choreDays.includes(parseInt(cb.value));
   });
   populateChoreUserCheckboxes(c.assignedTo);
+  // v=32: hint is for new chores only — hide when editing
+  const hint2 = document.getElementById('choreAssignHint');
+  if (hint2) hint2.style.display = 'none';
   // If parent settings is open, use parent flow (no extra PIN needed)
   if (document.getElementById('parentSettingsView').style.display !== 'none') {
     window._choreFromParent = true;
@@ -5354,6 +6169,24 @@ function openGuide() {
 async function closeGuide() {
   document.getElementById('guideOverlay').classList.remove('active');
   await dbPutSetting('hasSeenGuide', true);
+  // On kid devices, never leave the user on a blank screen. Route them back
+  // to either their locked kid's app or the 'Who are you?' picker.
+  try {
+    if (document.body.classList.contains('pp-kid-mode')){
+      const lockedId = localStorage.getItem('pp_kid_user_id');
+      if (lockedId && typeof selectUser === 'function'){
+        // If already inside the app, currentUserBar will be visible; otherwise re-enter
+        if (document.getElementById('app').style.display === 'none'){
+          await selectUser(lockedId);
+        }
+      } else {
+        // Show the kid picker
+        const pick = document.getElementById('kidPickScreen');
+        if (pick) pick.style.display = 'flex';
+        if (typeof window.__ppRenderKidPickGrid === 'function') window.__ppRenderKidPickGrid();
+      }
+    }
+  } catch(e){ console.warn('[PuzzlePig] closeGuide kid routing failed', e); }
 }
 
 // ---- Contextual Help System ----
@@ -5529,5 +6362,1573 @@ function daysUntil(dateStr) {
 // ---- Boot ----
 init();
 </script>
+<script>
+// ============================================================
+// ===== SUPABASE SYNC =====
+// Two-device sync for Puzzle Pig (parent + child) via Supabase.
+// Layered ON TOP of existing in-memory (_memChores/_memChoreLogs)
+// and IndexedDB storage. Local writes are mirrored to Supabase
+// keyed on local_id. Realtime updates merge back into local
+// arrays and trigger re-renders.
+// ============================================================
+(function(){
+  'use strict';
+
+  // ===== DEMO MODE GATE: short-circuit the entire sync layer =====
+  if (window.__PP_DEMO__) {
+    console.log('[DEMO] Supabase sync layer disabled');
+    // Provide a no-op ppSync surface so the rest of the app doesn't crash
+    window.ppSync = {
+      markDeviceClaimed: function(){ return Promise.resolve({ok:true}); },
+      unlinkKid: function(){ return Promise.resolve({ok:true}); },
+      pullAndMerge: function(){ return Promise.resolve(); },
+      pushChoreLog: function(){ return Promise.resolve(); },
+      pushChore: function(){ return Promise.resolve(); },
+      pushUser: function(){ return Promise.resolve(); },
+      deleteChoreRemote: function(){ return Promise.resolve(); },
+      deleteUserRemote: function(){ return Promise.resolve(); },
+    };
+    return;
+  }
+
+  const SUPABASE_URL = "https://qwnbycvkrxikgxsrncen.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3bmJ5Y3Zrcnhpa2d4c3JuY2VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwNzg2MzAsImV4cCI6MjA5NDY1NDYzMH0.y3xoGdrcNcNA5ug0957EkJlZemRaDQ5bRS91WgEs91o";
+
+  if (typeof supabase === 'undefined' || !supabase.createClient) {
+    console.error('[PuzzlePig sync] Supabase JS library failed to load.');
+    return;
+  }
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      storageKey: 'pp_supa_auth'
+    }
+  });
+  window.ppSupabase = sb;
+
+  // ---------- localStorage keys ----------
+  const LS_FAMILY_ID  = 'pp_family_id';
+  const LS_ROLE       = 'pp_role';            // 'parent' | 'child'
+  const LS_CODE       = 'pp_family_code';     // remembered for parent display
+  const LS_KID_USER_ID    = 'pp_kid_user_id';     // which kid this phone is locked to
+  const LS_KID_RESET_TOKEN = 'pp_kid_reset_token'; // last-seen reset_token for this kid
+
+  // ---------- module state ----------
+  let familyId = localStorage.getItem(LS_FAMILY_ID) || null;
+  let role     = localStorage.getItem(LS_ROLE)      || null;
+  let familyCode = localStorage.getItem(LS_CODE)    || null;
+  // Apply body class as early as possible so CSS hides the wrong screens before init() runs
+  try {
+    if (role === 'parent') document.body.classList.add('pp-parent-mode');
+    if (role === 'child')  document.body.classList.add('pp-kid-mode');
+  } catch(_){}
+  let authUserId = null;
+  let realtimeChannel = null;
+  // Track local_ids we just wrote so realtime echoes don't trigger redundant re-renders
+  const recentlyPushed = new Set();
+  function markPushed(localId){
+    recentlyPushed.add(localId);
+    setTimeout(()=>recentlyPushed.delete(localId), 2500);
+  }
+
+  // ---------- tiny helpers ----------
+  function setStatus(msg, isError){
+    const el = document.getElementById('familySetupStatus');
+    if (el){ el.textContent = msg || ''; el.style.color = isError ? '#FECACA' : ''; }
+  }
+  function showSyncChip(text){
+    const chip = document.getElementById('ppSyncChip');
+    if (!chip) return;
+    if (text) chip.textContent = text;
+    chip.style.display = 'block';
+    clearTimeout(chip._t);
+    chip._t = setTimeout(()=>{ chip.style.display = 'none'; }, 1400);
+  }
+  function safeRerender(){
+    try {
+      // Re-run renders for whichever view is active. Each function defensively
+      // checks DOM state before doing anything.
+      if (typeof updateChoresBadge === 'function') updateChoresBadge();
+      const homeView = document.getElementById('homeView');
+      if (homeView && homeView.classList.contains('active') && typeof renderHome === 'function') renderHome();
+      const choresView = document.getElementById('choresView');
+      if (choresView && choresView.classList.contains('active') && typeof renderChoresView === 'function') renderChoresView();
+      const settingsView = document.getElementById('parentSettingsView') || document.getElementById('settingsView');
+      if (settingsView && settingsView.classList.contains('active') && typeof renderParentSettings === 'function') renderParentSettings();
+    } catch(e){ console.warn('[PuzzlePig sync] re-render error', e); }
+  }
+
+  // 6-char code: A-Z + 2-9, excluding ambiguous I, O, 0, 1
+  function genFamilyCode(){
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let out = '';
+    for (let i=0;i<6;i++) out += alphabet[Math.floor(Math.random()*alphabet.length)];
+    return out;
+  }
+
+  // ---------- chore <-> row mappers ----------
+  function choreToRow(c){
+    return {
+      local_id: c.id,
+      family_id: familyId,
+      assigned_to: JSON.stringify(c.assignedTo || []),
+      name: c.name || '',
+      amount: Number(c.amount) || 0,
+      recurring: c.recurring || 'daily',
+      chore_days: JSON.stringify(c.choreDays || []),
+      icon: c.icon || ''
+    };
+  }
+  function rowToChore(r){
+    let assignedTo = [];
+    let choreDays  = [];
+    try { assignedTo = typeof r.assigned_to === 'string' ? JSON.parse(r.assigned_to||'[]') : (r.assigned_to||[]); } catch(_){}
+    try { choreDays  = typeof r.chore_days  === 'string' ? JSON.parse(r.chore_days ||'[]') : (r.chore_days ||[]); } catch(_){}
+    return {
+      id: r.local_id,
+      assignedTo: assignedTo,
+      name: r.name || '',
+      amount: Number(r.amount) || 0,
+      recurring: r.recurring || 'daily',
+      choreDays: choreDays,
+      icon: r.icon || '',
+      createdAt: r.created_at || new Date().toISOString()
+    };
+  }
+  function userToRow(u){
+    const row = {
+      local_id: u.id,
+      family_id: familyId,
+      name: u.name || '',
+      avatar: u.avatar || '',
+      pin: u.pin || ''
+    };
+    // Only include reset_token when explicitly set, so normal pushes don't blow it away
+    if (u.reset_token != null) row.reset_token = u.reset_token;
+    // v=40: total_saved column (kid pushes own jar total so parent can see it)
+    if (u.total_saved != null) row.total_saved = Number(u.total_saved) || 0;
+    // v=42: device_claimed_at — timestamp when a phone last claimed this kid identity
+    if (u.device_claimed_at !== undefined) row.device_claimed_at = u.device_claimed_at; // null clears it
+    return row;
+  }
+  function rowToUser(r){
+    return {
+      id: r.local_id,
+      name: r.name || '',
+      avatar: r.avatar || '',
+      pin: r.pin || '',
+      reset_token: r.reset_token || '',
+      total_saved: (r.total_saved != null) ? Number(r.total_saved) : null,
+      device_claimed_at: r.device_claimed_at || null
+    };
+  }
+
+  function logToRow(cl){
+    return {
+      local_id: cl.id,
+      family_id: familyId,
+      user_local_id: cl.userId || '',
+      chore_local_id: cl.choreId || '',
+      chore_name: cl._choreName || (window.chores && (chores.find(c=>c.id===cl.choreId)||{}).name) || '',
+      amount: Number(cl._amount || (window.chores && (chores.find(c=>c.id===cl.choreId)||{}).amount) || 0),
+      status: cl.status || 'pending',
+      log_date: cl.date || (new Date().toISOString().split('T')[0]),
+      approved_at: cl.approvedAt || null
+    };
+  }
+  function rowToLog(r){
+    return {
+      id: r.local_id,
+      userId: r.user_local_id,
+      choreId: r.chore_local_id,
+      status: r.status,
+      date: r.log_date,
+      approvedAt: r.approved_at,
+      createdAt: r.created_at || new Date().toISOString(),
+      _choreName: r.chore_name,
+      _amount: Number(r.amount) || 0
+    };
+  }
+
+  // ---------- push helpers ----------
+  async function pushChore(c){
+    if (!familyId || !c || !c.id) return;
+    markPushed(c.id);
+    try {
+      showSyncChip('Syncing…');
+      const { error } = await sb.from('chores').upsert(choreToRow(c), { onConflict: 'local_id' });
+      if (error) console.warn('[PuzzlePig sync] push chore error', error);
+    } catch(e){ console.warn('[PuzzlePig sync] push chore exception', e); }
+  }
+  async function pushUser(u){
+    if (!familyId || !u || !u.id) {
+      console.warn('[PuzzlePig sync] pushUser SKIPPED — familyId:', familyId, 'user:', u);
+      return;
+    }
+    markPushed(u.id);
+    try {
+      showSyncChip('Syncing…');
+      const row = userToRow(u);
+      console.log('[PuzzlePig sync] pushUser → upsert', row);
+      const { data, error } = await sb.from('family_users').upsert(row, { onConflict: 'local_id' }).select();
+      if (error) {
+        console.warn('[PuzzlePig sync] push user ERROR', error);
+        showSyncChip('Sync failed');
+      } else {
+        console.log('[PuzzlePig sync] push user OK', data);
+      }
+    } catch(e){ console.warn('[PuzzlePig sync] push user exception', e); }
+  }
+  // v=40: Recompute a user's total_saved (sum of their jar balances) and push to Supabase.
+  // Debounced per-user so a flurry of writes only sends one upsert.
+  const _totalSavedTimers = {};
+  function recomputeAndPushTotalSaved(userId){
+    if (!userId || !familyId) return;
+    if (_totalSavedTimers[userId]) clearTimeout(_totalSavedTimers[userId]);
+    _totalSavedTimers[userId] = setTimeout(async () => {
+      try {
+        // Only the user whose jars these are can compute it (jars are device-local).
+        // If the currently signed-in user isn't this user, skip — their own device will push.
+        if (typeof currentUserId !== 'undefined' && currentUserId !== userId) return;
+        const myJars = (typeof jars !== 'undefined' && Array.isArray(jars)) ? jars : [];
+        const total = Math.round(myJars.reduce((s, j) => s + (Number(j.balance)||0), 0) * 100) / 100;
+        const u = (typeof users !== 'undefined' ? users : []).find(x => x.id === userId);
+        if (!u) return;
+        u.total_saved = total;
+        // Push only the total_saved + identity fields (avoid clobbering other fields by reading row)
+        showSyncChip('Syncing…');
+        const { error } = await sb.from('family_users').update({ total_saved: total }).eq('family_id', familyId).eq('local_id', userId);
+        if (error) {
+          console.warn('[PuzzlePig sync] total_saved update error', error);
+          showSyncChip('Sync failed');
+        } else {
+          console.log('[PuzzlePig sync] total_saved updated', userId, '=', total);
+        }
+      } catch(e){ console.warn('[PuzzlePig sync] total_saved exception', e); }
+    }, 350);
+  }
+  try { window.recomputeAndPushTotalSaved = recomputeAndPushTotalSaved; } catch(_){}
+
+  async function deleteUserRemote(localId){
+    if (!familyId || !localId) return;
+    try {
+      const { error } = await sb.from('family_users').delete().eq('family_id', familyId).eq('local_id', localId);
+      if (error) console.warn('[PuzzlePig sync] delete user error', error);
+    } catch(e){ console.warn('[PuzzlePig sync] delete user exception', e); }
+  }
+
+  async function pushChoreLog(cl){
+    if (!familyId || !cl || !cl.id) return;
+    markPushed(cl.id);
+    try {
+      showSyncChip('Syncing…');
+      const { error } = await sb.from('chore_logs').upsert(logToRow(cl), { onConflict: 'local_id' });
+      if (error) console.warn('[PuzzlePig sync] push log error', error);
+    } catch(e){ console.warn('[PuzzlePig sync] push log exception', e); }
+  }
+  async function deleteChoreRemote(localId){
+    if (!familyId || !localId) return;
+    try {
+      const { error } = await sb.from('chores').delete().eq('family_id', familyId).eq('local_id', localId);
+      if (error) console.warn('[PuzzlePig sync] delete chore error', error);
+    } catch(e){ console.warn('[PuzzlePig sync] delete chore exception', e); }
+  }
+
+  // ---------- wrap existing local writers so EVERY write also mirrors to Supabase ----------
+  function wrapLocalWriters(){
+    if (typeof dbPutChore === 'function' && !dbPutChore.__ppWrapped){
+      const orig = dbPutChore;
+      window.dbPutChore = async function(c){
+        const r = await orig(c);
+        pushChore(c);
+        return r;
+      };
+      window.dbPutChore.__ppWrapped = true;
+    }
+    if (typeof dbPutChoreLog === 'function' && !dbPutChoreLog.__ppWrapped){
+      const orig = dbPutChoreLog;
+      window.dbPutChoreLog = async function(cl){
+        const r = await orig(cl);
+        pushChoreLog(cl);
+        return r;
+      };
+      window.dbPutChoreLog.__ppWrapped = true;
+    }
+    if (typeof dbDeleteChore === 'function' && !dbDeleteChore.__ppWrapped){
+      const orig = dbDeleteChore;
+      window.dbDeleteChore = async function(id){
+        const r = await orig(id);
+        deleteChoreRemote(id);
+        return r;
+      };
+      window.dbDeleteChore.__ppWrapped = true;
+    }
+    if (typeof dbPutUser === 'function' && !dbPutUser.__ppWrapped){
+      const orig = dbPutUser;
+      window.dbPutUser = async function(u){
+        const r = await orig(u);
+        pushUser(u);
+        return r;
+      };
+      window.dbPutUser.__ppWrapped = true;
+    }
+    if (typeof dbDeleteUser === 'function' && !dbDeleteUser.__ppWrapped){
+      const orig = dbDeleteUser;
+      window.dbDeleteUser = async function(id){
+        const r = await orig(id);
+        deleteUserRemote(id);
+        return r;
+      };
+      window.dbDeleteUser.__ppWrapped = true;
+    }
+    // v=40: When jars or jar transactions change, recompute and push the current user's total_saved
+    if (typeof dbPutJar === 'function' && !dbPutJar.__ppWrapped){
+      const orig = dbPutJar;
+      window.dbPutJar = async function(j){
+        const r = await orig(j);
+        try { recomputeAndPushTotalSaved(j && j.userId); } catch(_){}
+        return r;
+      };
+      window.dbPutJar.__ppWrapped = true;
+    }
+    if (typeof dbPutJarTx === 'function' && !dbPutJarTx.__ppWrapped){
+      const orig = dbPutJarTx;
+      window.dbPutJarTx = async function(t){
+        const r = await orig(t);
+        try { recomputeAndPushTotalSaved(t && t.userId); } catch(_){}
+        return r;
+      };
+      window.dbPutJarTx.__ppWrapped = true;
+    }
+  }
+
+  // ---------- initial pull + merge ----------
+  async function pullAndMerge(){
+    if (!familyId) return;
+    try {
+      const [choresRes, logsRes, usersRes] = await Promise.all([
+        sb.from('chores').select('*').eq('family_id', familyId),
+        sb.from('chore_logs').select('*').eq('family_id', familyId),
+        sb.from('family_users').select('*').eq('family_id', familyId)
+      ]);
+      if (choresRes.error) console.warn('[PuzzlePig sync] pull chores error', choresRes.error);
+      if (logsRes.error)   console.warn('[PuzzlePig sync] pull logs error', logsRes.error);
+      if (usersRes.error)  console.warn('[PuzzlePig sync] pull users error', usersRes.error);
+
+      const remoteChores = (choresRes.data || []).map(rowToChore);
+      const remoteLogs   = (logsRes.data   || []).map(rowToLog);
+      const remoteUsers  = (usersRes.data  || []).map(rowToUser);
+      console.log('[PuzzlePig sync] pullAndMerge fetched', { users: remoteUsers.length, chores: remoteChores.length, logs: remoteLogs.length, familyId });
+
+      // Wait for the local _mem arrays to exist before merging — init() may not
+      // have finished setting them up yet on a kid phone that just joined.
+      for (let wait = 0; wait < 50 && (typeof _memUsers === 'undefined' || typeof _memChores === 'undefined' || typeof _memChoreLogs === 'undefined'); wait++){
+        await new Promise(r => setTimeout(r, 100));
+      }
+      if (typeof _memUsers === 'undefined' || typeof _memChores === 'undefined' || typeof _memChoreLogs === 'undefined'){
+        console.warn('[PuzzlePig sync] pullAndMerge: _mem arrays never appeared, giving up');
+        return;
+      }
+
+      // Merge users first — chores reference them. Also persist each one to
+      // IndexedDB so a reload (before the next pull) still shows them.
+      for (const ru of remoteUsers){
+        const i = _memUsers.findIndex(x => x.id === ru.id);
+        if (i >= 0) _memUsers[i] = Object.assign({}, _memUsers[i], ru);
+        else _memUsers.push(ru);
+        try { if (typeof _idbPut === 'function') await _idbPut(USER_STORE, _memUsers.find(x => x.id === ru.id)); } catch(_){}
+      }
+      // Always mirror into the main script's global `users` array.
+      // We reference window.users (not the bare identifier) so this works even
+      // though `let users` lives in a different <script> block.
+      try {
+        if (!Array.isArray(window.users)) window.users = [];
+        window.users.length = 0;
+        for (const u of _memUsers) window.users.push({...u});
+      } catch(_) {}
+      console.log('[PuzzlePig sync] pullAndMerge merged users → _memUsers now has', _memUsers.length, 'entries; window.users.length =', (window.users && window.users.length));
+      // If the kid pick screen is currently waiting, refresh it now that users exist
+      try {
+        if (role === 'child' && !kidLockedUserId){
+          const pick = document.getElementById('kidPickScreen');
+          if (pick && pick.style.display !== 'none' && typeof renderKidPickGrid === 'function'){
+            renderKidPickGrid();
+          }
+        }
+      } catch(_){}
+
+      // Merge chores (and persist to IndexedDB)
+      for (const rc of remoteChores){
+        const i = _memChores.findIndex(x => x.id === rc.id);
+        if (i >= 0) _memChores[i] = Object.assign({}, _memChores[i], rc);
+        else _memChores.push(rc);
+        try { if (typeof _idbPut === 'function') await _idbPut(CHORES_STORE, _memChores.find(x => x.id === rc.id)); } catch(_){}
+      }
+      // Merge logs (and persist to IndexedDB)
+      for (const rl of remoteLogs){
+        const i = _memChoreLogs.findIndex(x => x.id === rl.id);
+        if (i >= 0) _memChoreLogs[i] = Object.assign({}, _memChoreLogs[i], rl);
+        else _memChoreLogs.push(rl);
+        try { if (typeof _idbPut === 'function') await _idbPut(CHORE_LOG_STORE, _memChoreLogs.find(x => x.id === rl.id)); } catch(_){}
+      }
+
+      // Refresh visible-to-current-user views' working arrays
+      if (typeof currentUserId !== 'undefined' && currentUserId){
+        if (typeof chores !== 'undefined' && Array.isArray(chores)){
+          window.chores = _memChores
+            .filter(c => Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUserId))
+            .map(c => JSON.parse(JSON.stringify(c)));
+        }
+        if (typeof choreLogs !== 'undefined' && Array.isArray(choreLogs)){
+          window.choreLogs = _memChoreLogs
+            .filter(l => l.userId === currentUserId)
+            .map(l => JSON.parse(JSON.stringify(l)));
+        }
+      }
+      safeRerender();
+    } catch(e){
+      console.warn('[PuzzlePig sync] pullAndMerge exception', e);
+    }
+  }
+
+  // ---------- realtime ----------
+  function subscribeRealtime(){
+    if (!familyId) return;
+    if (realtimeChannel){
+      try { sb.removeChannel(realtimeChannel); } catch(_){}
+      realtimeChannel = null;
+    }
+    realtimeChannel = sb.channel('pp_family_' + familyId)
+      .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'chores', filter: 'family_id=eq.' + familyId },
+          (payload) => handleChoreChange(payload))
+      .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'chore_logs', filter: 'family_id=eq.' + familyId },
+          (payload) => handleChoreLogChange(payload))
+      .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'family_users', filter: 'family_id=eq.' + familyId },
+          (payload) => handleUserChange(payload))
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') console.log('[PuzzlePig sync] realtime subscribed');
+      });
+  }
+
+  function handleChoreChange(payload){
+    if (typeof _memChores === 'undefined') return;
+    if (payload.eventType === 'DELETE'){
+      const old = payload.old || {};
+      if (!old.local_id) return;
+      _memChores = _memChores.filter(c => c.id !== old.local_id);
+      if (typeof chores !== 'undefined') window.chores = chores.filter(c => c.id !== old.local_id);
+      try { if (typeof _idbDelete === 'function') _idbDelete(CHORES_STORE, old.local_id); } catch(_){}
+    } else {
+      const r = payload.new; if (!r || !r.local_id) return;
+      const c = rowToChore(r);
+      const i = _memChores.findIndex(x => x.id === c.id);
+      if (i >= 0) _memChores[i] = c; else _memChores.push(c);
+      try { if (typeof _idbPut === 'function') _idbPut(CHORES_STORE, c); } catch(_){}
+      // Update visible list
+      if (typeof currentUserId !== 'undefined' && typeof chores !== 'undefined'){
+        const visible = Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUserId);
+        const j = chores.findIndex(x => x.id === c.id);
+        if (visible){ if (j >= 0) chores[j] = JSON.parse(JSON.stringify(c)); else chores.push(JSON.parse(JSON.stringify(c))); }
+        else if (j >= 0) chores.splice(j,1);
+      }
+    }
+    safeRerender();
+  }
+
+  function handleUserChange(payload){
+    console.log('[PuzzlePig sync] handleUserChange', payload.eventType, payload.new || payload.old);
+    if (typeof _memUsers === 'undefined') return;
+    if (payload.eventType === 'DELETE'){
+      const old = payload.old || {};
+      if (!old.local_id) return;
+      _memUsers = _memUsers.filter(u => u.id !== old.local_id);
+      if (Array.isArray(window.users)) {
+        window.users = window.users.filter(u => u.id !== old.local_id);
+      }
+      try { if (typeof _idbDelete === 'function') _idbDelete(USER_STORE, old.local_id); } catch(_){}
+      // If the currently-active user was deleted on the other device, clear it
+      if (typeof window.currentUserId !== 'undefined' && window.currentUserId === old.local_id){
+        try { window.currentUserId = (window.users && window.users[0] && window.users[0].id) || null; } catch(_){}
+      }
+      // Kid-mode: if the kid this phone was locked to was deleted, drop back to picker
+      if (role === 'child' && kidLockedUserId === old.local_id){
+        unlockKidDevice(false);
+        hideKidScreens();
+        showKidPickScreen();
+      }
+    } else {
+      const r = payload.new; if (!r || !r.local_id) return;
+      const u = rowToUser(r);
+      const i = _memUsers.findIndex(x => x.id === u.id);
+      if (i >= 0) _memUsers[i] = u; else _memUsers.push(u);
+      try { if (typeof _idbPut === 'function') _idbPut(USER_STORE, u); } catch(_){}
+      if (!Array.isArray(window.users)) window.users = [];
+      {
+        const j = window.users.findIndex(x => x.id === u.id);
+        if (j >= 0) window.users[j] = {...u}; else window.users.push({...u});
+      }
+      // Kid-mode: check if the parent has just reset this device for the locked kid
+      try { checkKidResetFromRow(r); } catch(_){}
+    }
+    try { if (typeof renderUserSelect === 'function') renderUserSelect(); } catch(_){}
+    // Refresh the kid picker grid if it's currently visible (new kids may have appeared)
+    try {
+      const pick = document.getElementById('kidPickScreen');
+      if (pick && pick.style.display !== 'none' && role === 'child' && !kidLockedUserId){
+        renderKidPickGrid();
+      }
+    } catch(_){}
+    safeRerender();
+  }
+
+  function handleChoreLogChange(payload){
+    if (typeof _memChoreLogs === 'undefined') return;
+    if (payload.eventType === 'DELETE'){
+      const old = payload.old || {};
+      if (!old.local_id) return;
+      _memChoreLogs = _memChoreLogs.filter(l => l.id !== old.local_id);
+      if (typeof choreLogs !== 'undefined') window.choreLogs = choreLogs.filter(l => l.id !== old.local_id);
+      try { if (typeof _idbDelete === 'function') _idbDelete(CHORE_LOG_STORE, old.local_id); } catch(_){}
+    } else {
+      const r = payload.new; if (!r || !r.local_id) return;
+      const cl = rowToLog(r);
+      const prev = _memChoreLogs.find(x => x.id === cl.id) || null;
+      const wasNew = !prev;
+      const i = _memChoreLogs.findIndex(x => x.id === cl.id);
+      if (i >= 0) _memChoreLogs[i] = cl; else _memChoreLogs.push(cl);
+      try { if (typeof _idbPut === 'function') _idbPut(CHORE_LOG_STORE, cl); } catch(_){}
+      // Sync into visible array
+      if (typeof currentUserId !== 'undefined' && typeof choreLogs !== 'undefined' && cl.userId === currentUserId){
+        const j = choreLogs.findIndex(x => x.id === cl.id);
+        if (j >= 0) choreLogs[j] = JSON.parse(JSON.stringify(cl)); else choreLogs.push(JSON.parse(JSON.stringify(cl)));
+      }
+      // Parent: pending toast disabled — parent sees pending chores inline on settings view.
+      // (Previously called showParentPendingToast() here; removed per user request.)
+      if (role === 'parent' && cl.status === 'pending' && wasNew && !recentlyPushed.has(cl.id)){
+        // Re-render parent settings so the new pending chore appears immediately
+        try { if (typeof renderParentSettings === 'function') renderParentSettings(); } catch(_){}
+      }
+      // Kid device: credit jar when a log transitions to 'approved'
+      if (role === 'child' && cl.status === 'approved' && (!prev || prev.status !== 'approved')){
+        creditKidJarFromApprovedLog(cl).catch(err => console.warn('[creditKidJar] failed', err));
+      }
+    }
+    safeRerender();
+  }
+
+  // ---------- kid-side jar credit on approval ----------
+  const CREDITED_LOGS_KEY = 'pp_credited_log_ids';
+  function _getCreditedLogIds(){
+    try { return new Set(JSON.parse(localStorage.getItem(CREDITED_LOGS_KEY) || '[]')); }
+    catch(_) { return new Set(); }
+  }
+  function _markLogCredited(id){
+    try {
+      const s = _getCreditedLogIds(); s.add(id);
+      // Cap to last 500 to avoid unbounded growth
+      const arr = Array.from(s); const trimmed = arr.slice(-500);
+      localStorage.setItem(CREDITED_LOGS_KEY, JSON.stringify(trimmed));
+    } catch(_){}
+  }
+  async function creditKidJarFromApprovedLog(cl){
+    if (!cl || cl.status !== 'approved') return;
+    if (typeof currentUserId === 'undefined' || cl.userId !== currentUserId) return;
+    const credited = _getCreditedLogIds();
+    if (credited.has(cl.id)) return; // idempotent
+    // Find chore amount
+    const chore = (typeof _memChores !== 'undefined' && _memChores.find(c => c.id === cl.choreId)) || null;
+    const amount = Number((chore && chore.amount) || cl._amount || 0);
+    if (!amount || amount <= 0) return;
+    if (typeof dbGetAllJars !== 'function' || typeof dbPutJar !== 'function') return;
+    // CRITICAL: mark credited BEFORE doing the work, so any reload/error can't double-credit
+    _markLogCredited(cl.id);
+    const allJ = await dbGetAllJars();
+    const userJars = allJ.filter(j => j.userId === currentUserId);
+    if (!userJars.length) return;
+    const jar = userJars.find(j => j.type === 'save') || userJars[0];
+    jar.balance = Number(jar.balance || 0) + amount;
+    await dbPutJar(jar);
+    try {
+      if (typeof dbPutJarTx === 'function'){
+        const now = new Date().toISOString();
+        const note = 'Chore: ' + ((chore && chore.name) || cl._choreName || 'Chore');
+        await dbPutJarTx({ id: 'jartx_' + Date.now() + '_' + cl.id, jarId: jar.id, userId: currentUserId, amount, type: 'chore', note, createdAt: now });
+      }
+    } catch(_){}
+    // Credit goals only if jar is the Save jar
+    try {
+      if (jar.type === 'save' && typeof creditGoalsForUser === 'function' && typeof dbGetAll === 'function'){
+        const allGoalsNow = await dbGetAll();
+        const userGoals = allGoalsNow.filter(g => g.userId === currentUserId);
+        await creditGoalsForUser(amount, new Date().toISOString(), 'Chore: ' + ((chore && chore.name) || 'Chore'), userGoals);
+      }
+    } catch(_){}
+    // Refresh in-memory jars array if present
+    try {
+      if (typeof jars !== 'undefined'){
+        const k = jars.findIndex(x => x.id === jar.id);
+        if (k >= 0) jars[k] = JSON.parse(JSON.stringify(jar));
+      }
+    } catch(_){}
+    console.log('[creditKidJar] credited $' + amount.toFixed(2) + ' to jar ' + jar.id + ' for log ' + cl.id);
+    // Refresh visible jars, goals, and home view so kid sees new balance immediately
+    try {
+      if (typeof currentUserId !== 'undefined' && typeof dbGetAllJars === 'function'){
+        const allJ2 = await dbGetAllJars();
+        if (typeof jars !== 'undefined') {
+          window.jars = allJ2.filter(j => j.userId === currentUserId);
+        }
+      }
+      if (typeof dbGetAll === 'function' && typeof goals !== 'undefined'){
+        const allG2 = await dbGetAll();
+        window.goals = allG2.filter(g => g.userId === currentUserId);
+      }
+      if (typeof renderJarsView === 'function') renderJarsView();
+      if (typeof renderHome === 'function') renderHome();
+      if (typeof renderPuzzle === 'function' && typeof currentGoalId !== 'undefined' && currentGoalId) renderPuzzle();
+    } catch(_){}
+  }
+  try { window.creditKidJarFromApprovedLog = creditKidJarFromApprovedLog; } catch(_){}
+
+  // ---------- parent toast ----------
+  // Combined toast: shows total pending count across all kids. Tap to jump to parent settings.
+  function showParentPendingToast(){
+    if (role !== 'parent') return;
+    const toast = document.getElementById('ppParentToast');
+    const body  = document.getElementById('ppParentToastBody');
+    if (!toast || !body) return;
+    const pendingCount = (typeof _memChoreLogs !== 'undefined')
+      ? _memChoreLogs.filter(l => l && l.status === 'pending').length : 0;
+    if (pendingCount <= 0){ toast.style.display = 'none'; return; }
+    const noun = pendingCount === 1 ? 'chore' : 'chores';
+    body.innerHTML = '<strong>' + pendingCount + ' ' + noun + '</strong> waiting for your approval.<br>'
+      + '<span style="opacity:.7;">Tap to review.</span>';
+    toast.style.display = 'block';
+    // Hide the per-chore Approve/Deny buttons in the combined toast
+    const approveBtn = document.getElementById('ppParentToastApprove');
+    const denyBtn    = document.getElementById('ppParentToastDeny');
+    if (approveBtn) approveBtn.style.display = 'none';
+    if (denyBtn) denyBtn.style.display = 'none';
+    const closeBtn = document.getElementById('ppParentToastClose');
+    if (closeBtn) closeBtn.onclick = () => { toast.style.display = 'none'; };
+    // Tap body to jump to parent settings (chore review section)
+    body.style.cursor = 'pointer';
+    body.onclick = () => {
+      toast.style.display = 'none';
+      try {
+        if (typeof showView === 'function') showView('parentSettingsView');
+        else if (typeof renderParentSettings === 'function') renderParentSettings();
+      } catch(_){}
+    };
+  }
+  try { window.showParentPendingToast = showParentPendingToast; } catch(_){}
+  function escapeHTML(s){ const d=document.createElement('div'); d.textContent = (s==null?'':String(s)); return d.innerHTML; }
+
+  // ---------- auth + setup overlay ----------
+  async function ensureAnonAuth(){
+    const { data: sessData } = await sb.auth.getSession();
+    if (sessData && sessData.session && sessData.session.access_token){
+      authUserId = sessData.session.user.id;
+      return true;
+    }
+    const { data: authData, error } = await sb.auth.signInAnonymously();
+    if (error){
+      console.error('[PuzzlePig sync] anon sign-in error', error);
+      setStatus('Sign-in error: ' + (error.message || error), true);
+      return false;
+    }
+    // Wait briefly for the session to be fully attached
+    for (let i=0; i<15; i++){
+      const { data: s } = await sb.auth.getSession();
+      if (s && s.session && s.session.access_token){
+        authUserId = s.session.user.id;
+        return true;
+      }
+      await new Promise(r => setTimeout(r, 150));
+    }
+    authUserId = (authData && authData.user && authData.user.id) || null;
+    return !!authUserId;
+  }
+
+  function showSetupOverlay(){
+    const el = document.getElementById('familySetupScreen');
+    if (el) el.style.display = 'flex';
+  }
+  function hideSetupOverlay(){
+    const el = document.getElementById('familySetupScreen');
+    if (el) el.style.display = 'none';
+  }
+  function showView(name){
+    document.getElementById('familySetupChoice').style.display      = (name === 'choice') ? '' : 'none';
+    document.getElementById('familySetupParentCode').style.display  = (name === 'parent') ? '' : 'none';
+    document.getElementById('familySetupChildEntry').style.display  = (name === 'child')  ? '' : 'none';
+  }
+
+  function wireSetupUI(){
+    const startBtn = document.getElementById('startFamilyBtn');
+    const joinBtn  = document.getElementById('joinFamilyBtn');
+    const doneBtn  = document.getElementById('familySetupDoneBtn');
+    const codeIn   = document.getElementById('familyCodeInput');
+    const joinSub  = document.getElementById('familyJoinSubmitBtn');
+    const backBtn  = document.getElementById('familyJoinBackBtn');
+
+    if (startBtn) startBtn.onclick = async () => {
+      setStatus('Creating your family…');
+      const ok = await ensureAnonAuth(); if (!ok) return;
+      const code = genFamilyCode();
+      const { data, error } = await sb.rpc('create_family_for_current_user', {
+        p_family_name: 'My Family',
+        p_family_code: code,
+        p_display_name: 'Parent'
+      });
+      if (error){
+        console.error('[PuzzlePig sync] create family error', error);
+        setStatus('Could not create family: ' + (error.message || ''), true);
+        return;
+      }
+      // Resolve family_id from RPC return (it may be a row, an object, or just an id)
+      let famId = null;
+      if (data && typeof data === 'object'){
+        famId = data.family_id || data.id || (Array.isArray(data) && data[0] && (data[0].family_id || data[0].id));
+      } else if (typeof data === 'string'){ famId = data; }
+      if (!famId){
+        // Fallback: look up by code
+        const { data: famRows } = await sb.from('families').select('id').eq('family_code', code).limit(1);
+        if (famRows && famRows[0]) famId = famRows[0].id;
+      }
+      if (!famId){
+        setStatus('Family created, but could not read its ID. Please refresh.', true);
+        return;
+      }
+      familyId = famId; role = 'parent'; familyCode = code;
+      localStorage.setItem(LS_FAMILY_ID, familyId);
+      localStorage.setItem(LS_ROLE, role);
+      localStorage.setItem(LS_CODE, code);
+
+      document.getElementById('familyCodeDisplay').textContent = code;
+      document.getElementById('familySetupHeadline').textContent = "You're set up. Share this code with your kid.";
+      showView('parent');
+      setStatus('');
+    };
+
+    if (joinBtn) joinBtn.onclick = () => {
+      document.getElementById('familySetupHeadline').textContent = "Enter the code your parent gave you.";
+      showView('child');
+      setStatus('');
+      setTimeout(()=>{ const i=document.getElementById('familyCodeInput'); if (i) i.focus(); }, 60);
+    };
+
+    if (backBtn) backBtn.onclick = () => {
+      document.getElementById('familySetupHeadline').textContent = "Set up your family to sync chores between devices.";
+      showView('choice');
+      setStatus('');
+    };
+
+    if (codeIn) codeIn.addEventListener('input', () => {
+      codeIn.value = codeIn.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+    });
+
+    if (joinSub) joinSub.onclick = async () => {
+      const code = (codeIn.value || '').trim().toUpperCase();
+      if (code.length !== 6){ setStatus('Please enter a 6-character code.', true); return; }
+      setStatus('Joining family…');
+      const ok = await ensureAnonAuth(); if (!ok) return;
+      const { data, error } = await sb.rpc('join_family_for_current_user', {
+        p_family_code: code,
+        p_display_name: 'Kid'
+      });
+      if (error){
+        console.error('[PuzzlePig sync] join error', error);
+        setStatus('Could not join: ' + (error.message || ''), true);
+        return;
+      }
+      let famId = null;
+      if (data && typeof data === 'object'){
+        famId = data.family_id || data.id || (Array.isArray(data) && data[0] && (data[0].family_id || data[0].id));
+      } else if (typeof data === 'string'){ famId = data; }
+      if (!famId){
+        const { data: famRows } = await sb.from('families').select('id').eq('family_code', code).limit(1);
+        if (famRows && famRows[0]) famId = famRows[0].id;
+      }
+      if (!famId){ setStatus('Joined, but could not read family ID. Please refresh.', true); return; }
+      familyId = famId; role = 'child'; familyCode = code;
+      localStorage.setItem(LS_FAMILY_ID, familyId);
+      localStorage.setItem(LS_ROLE, role);
+      localStorage.setItem(LS_CODE, code);
+      hideSetupOverlay();
+      await onFamilyReady();
+    };
+
+    if (doneBtn) doneBtn.onclick = async () => {
+      hideSetupOverlay();
+      await onFamilyReady();
+    };
+  }
+
+  // ===== KID-MODE LOCKDOWN (one-child-per-phone) =====
+  let kidLockedUserId = localStorage.getItem(LS_KID_USER_ID) || null;
+
+  function lookupKid(id){
+    if (!id) return null;
+    if (typeof _memUsers !== 'undefined'){
+      const u = _memUsers.find(x => x.id === id);
+      if (u) return u;
+    }
+    if (Array.isArray(window.users)){
+      return window.users.find(x => x.id === id) || null;
+    }
+    return null;
+  }
+
+  function enterKidMode(){
+    document.body.classList.add('pp-kid-mode');
+    // Hide the normal user-select screen if it's visible
+    const sel = document.getElementById('userSelectScreen');
+    if (sel) sel.style.display = 'none';
+  }
+
+  function hideKidScreens(){
+    const pick = document.getElementById('kidPickScreen');
+    const pin  = document.getElementById('kidPinScreen');
+    if (pick) pick.style.display = 'none';
+    if (pin)  pin.style.display  = 'none';
+  }
+
+  function showKidPickScreen(){
+    const pick = document.getElementById('kidPickScreen');
+    if (!pick) return;
+    pick.style.display = 'flex';
+    renderKidPickGrid();
+    // Wire the 'Start over' button so families can recover from a wrong join
+    const resetBtn = document.getElementById('kidPickResetBtn');
+    if (resetBtn && !resetBtn._wired){
+      resetBtn.onclick = () => {
+        const ok = confirm('Leave this family and start over?\n\nYou will need a new family code from your parent.');
+        if (!ok) return;
+        localStorage.removeItem(LS_FAMILY_ID);
+        localStorage.removeItem(LS_ROLE);
+        localStorage.removeItem(LS_CODE);
+        localStorage.removeItem(LS_KID_USER_ID);
+        localStorage.removeItem(LS_KID_RESET_TOKEN);
+        location.reload();
+      };
+      resetBtn._wired = true;
+    }
+    // Show the family code on the waiting screen so kid can confirm it matches parent's
+    const hint = document.getElementById('kidPickFamilyHint');
+    if (hint) hint.textContent = familyCode ? ('Family code: ' + familyCode) : '';
+  }
+
+  function renderKidPickGrid(){
+    const grid    = document.getElementById('kidPickGrid');
+    const waiting = document.getElementById('kidPickWaiting');
+    const title   = document.getElementById('kidPickTitle');
+    const sub     = document.getElementById('kidPickSubtitle');
+    if (!grid || !waiting) return;
+    const list = (typeof _memUsers !== 'undefined' && Array.isArray(_memUsers)) ? _memUsers : [];
+    if (list.length === 0){
+      grid.innerHTML = '';
+      grid.style.display = 'none';
+      waiting.style.display = 'block';
+      if (title) title.textContent = 'Almost ready';
+      if (sub)   sub.textContent   = '';
+      return;
+    }
+    waiting.style.display = 'none';
+    grid.style.display = 'grid';
+    if (title) title.textContent = 'Who are you?';
+    if (sub)   sub.textContent   = 'Tap your avatar to start.';
+    const palette = ['#FF6B9D','#FFB454','#4ECDC4','#A78BFA','#F472B6','#60A5FA','#34D399','#FB923C'];
+    grid.innerHTML = list.map((u, idx) => {
+      const color = palette[idx % palette.length];
+      const initial = (u.name || '?').charAt(0).toUpperCase();
+      const safeName = (u.name || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return `
+        <button type="button" data-kid-id="${u.id}" style="
+          background:transparent; border:none; cursor:pointer; color:#fff;
+          display:flex; flex-direction:column; align-items:center; gap:8px;
+          padding:10px 6px; border-radius:14px; transition:transform .15s;
+          font-family:inherit;
+        " onmousedown="this.style.transform='scale(0.94)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(0.94)'" ontouchend="this.style.transform=''">
+          <div style="width:88px; height:88px; border-radius:50%; background:${color};
+                      display:flex; align-items:center; justify-content:center;
+                      font-size:38px; font-weight:700; color:#fff;
+                      border:3px solid rgba(255,255,255,0.55); box-shadow:0 6px 16px rgba(0,0,0,0.18);">
+            ${initial}
+          </div>
+          <div style="font-size:15px; font-weight:600;">${safeName}</div>
+        </button>`;
+    }).join('');
+    // Wire taps
+    grid.querySelectorAll('button[data-kid-id]').forEach(btn => {
+      btn.onclick = () => claimKidIdentity(btn.getAttribute('data-kid-id'));
+    });
+  }
+
+  async function claimKidIdentity(kidId){
+    const u = lookupKid(kidId);
+    if (!u){
+      const s = document.getElementById('kidPickStatus');
+      if (s) s.textContent = 'Could not find that user. Please try again.';
+      return;
+    }
+    // Remember the current reset_token so a parent reset will trigger relock
+    localStorage.setItem(LS_KID_USER_ID, kidId);
+    localStorage.setItem(LS_KID_RESET_TOKEN, u.reset_token || '');
+    kidLockedUserId = kidId;
+    // v=42: mark this kid as having a device claimed so parent sees "Phone linked"
+    try {
+      if (window.ppSync && typeof window.ppSync.markDeviceClaimed === 'function') {
+        window.ppSync.markDeviceClaimed(kidId);
+      }
+    } catch(_){}
+    if (u.pin && String(u.pin).length > 0){
+      showKidPinScreen(u);
+    } else {
+      finishKidUnlock(kidId);
+    }
+  }
+
+  function showKidPinScreen(u){
+    const pin    = document.getElementById('kidPinScreen');
+    const pick   = document.getElementById('kidPickScreen');
+    const avatar = document.getElementById('kidPinAvatar');
+    const hello  = document.getElementById('kidPinHello');
+    const input  = document.getElementById('kidPinInput');
+    const status = document.getElementById('kidPinStatus');
+    const submit = document.getElementById('kidPinSubmit');
+    if (!pin || !input || !submit) return;
+    if (pick) pick.style.display = 'none';
+    pin.style.display = 'flex';
+    if (avatar) avatar.textContent = (u.name || '?').charAt(0).toUpperCase();
+    if (hello)  hello.textContent  = 'Hi ' + (u.name || 'there');
+    if (status) status.textContent = '';
+    input.value = '';
+    setTimeout(()=>{ try { input.focus(); } catch(_){} }, 80);
+    const tryUnlock = () => {
+      const entered = (input.value || '').trim();
+      if (entered === String(u.pin)){
+        finishKidUnlock(u.id);
+      } else {
+        if (status) status.textContent = 'Wrong PIN. Try again.';
+        input.value = '';
+        try { input.focus(); } catch(_){}
+      }
+    };
+    submit.onclick = tryUnlock;
+    input.onkeydown = (e) => { if (e.key === 'Enter') tryUnlock(); };
+  }
+
+  async function finishKidUnlock(kidId){
+    hideKidScreens();
+    // Make absolutely sure the kid is in the main script's `users` array
+    // before we hand off to selectUser(). selectUser() bails out silently
+    // if users.find(id) returns undefined.
+    try {
+      if (!Array.isArray(window.users)) window.users = [];
+      const kid = (typeof _memUsers !== 'undefined') ? _memUsers.find(u => u.id === kidId) : null;
+      if (kid && !window.users.find(u => u.id === kidId)){
+        window.users.push({...kid});
+      }
+    } catch(_){}
+    // Ensure this kid has jars locally on this device. Parent-side users
+    // only synced through Supabase, so the kid phone has no jars/chores
+    // in IndexedDB yet. Without this, selectUser() routes to jarsView
+    // (a parent-only setup screen), leaving the kid stranded.
+    try {
+      if (typeof autoCreateJarsForUser === 'function'){
+        await autoCreateJarsForUser(kidId);
+      }
+    } catch(e){ console.warn('[PuzzlePig kid] autoCreateJarsForUser failed', e); }
+    console.log('[PuzzlePig kid] finishKidUnlock about to selectUser', kidId, 'window.users.length =', (window.users && window.users.length));
+    // Use the existing selectUser() to actually enter the app as that kid
+    if (typeof selectUser === 'function'){
+      try { await selectUser(kidId); }
+      catch(e){ console.warn('[PuzzlePig kid] selectUser failed', e); }
+    }
+    // Post-flight diagnostic so we can see what selectUser actually did
+    try {
+      const app = document.getElementById('app');
+      console.log('[PuzzlePig kid] after selectUser: app:', (app ? app.style.display : 'missing'),
+        'currentUserId:', window.currentUserId,
+        'users.length:', (window.users && window.users.length));
+    } catch(_){}
+    // One-time backfill: credit any approved logs that haven't been credited yet
+    try { await backfillApprovedLogCredits(); } catch(e){ console.warn('[backfill] failed', e); }
+  }
+
+  async function backfillApprovedLogCredits(){
+    if (role !== 'child') return;
+    if (typeof currentUserId === 'undefined' || !currentUserId) return;
+    if (typeof _memChoreLogs === 'undefined') return;
+    const approved = _memChoreLogs.filter(cl => cl && cl.status === 'approved' && cl.userId === currentUserId);
+    if (!approved.length) return;
+    console.log('[backfill] scanning', approved.length, 'approved logs for credit gaps');
+    let credited = 0;
+    for (const cl of approved){
+      const before = _getCreditedLogIds();
+      if (before.has(cl.id)) continue;
+      try { await creditKidJarFromApprovedLog(cl); credited++; }
+      catch(e){ console.warn('[backfill] credit failed for', cl.id, e); }
+    }
+    if (credited > 0) console.log('[backfill] credited', credited, 'previously-missed logs');
+  }
+  try { window.backfillApprovedLogCredits = backfillApprovedLogCredits; } catch(_){}
+
+  async function initKidMode(){
+    if (role !== 'child') return;
+    enterKidMode();
+    // Wait until _memUsers is populated (from pullAndMerge / init)
+    for (let i=0; i<40; i++){
+      if (typeof _memUsers !== 'undefined' && Array.isArray(_memUsers)) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    // Safety net: if local users are still empty, force another pull
+    if (typeof _memUsers !== 'undefined' && _memUsers.length === 0){
+      console.log('[PuzzlePig kid] _memUsers empty after wait — forcing another pull');
+      try { await pullAndMerge(); } catch(_){}
+    }
+    // If this phone is already locked to a kid, try to auto-route
+    if (kidLockedUserId){
+      const u = lookupKid(kidLockedUserId);
+      if (u){
+        // Re-check the reset_token: if it changed, parent has unlinked this device
+        const lastSeen = localStorage.getItem(LS_KID_RESET_TOKEN) || '';
+        if ((u.reset_token || '') !== lastSeen && lastSeen !== ''){
+          // Parent reset — clear and show picker
+          unlockKidDevice(false);
+          showKidPickScreen();
+          return;
+        }
+        if (u.pin && String(u.pin).length > 0){
+          showKidPinScreen(u);
+        } else {
+          finishKidUnlock(u.id);
+        }
+        return;
+      }
+      // Locked-to kid not found in roster (parent deleted them) — clear and re-pick
+      unlockKidDevice(false);
+    }
+    showKidPickScreen();
+  }
+
+  function unlockKidDevice(reload){
+    localStorage.removeItem(LS_KID_USER_ID);
+    localStorage.removeItem(LS_KID_RESET_TOKEN);
+    kidLockedUserId = null;
+    if (reload) location.reload();
+  }
+
+  // Watch for parent-triggered reset on the currently-locked kid
+  function checkKidResetFromRow(row){
+    if (role !== 'child') return;
+    if (!kidLockedUserId || !row || row.local_id !== kidLockedUserId) return;
+    const newTok = row.reset_token || '';
+    const lastSeen = localStorage.getItem(LS_KID_RESET_TOKEN) || '';
+    if (newTok && newTok !== lastSeen){
+      // Parent has unlinked this device
+      unlockKidDevice(false);
+      // Drop back to picker
+      hideKidScreens();
+      showKidPickScreen();
+    }
+  }
+  // Expose for handleUserChange
+  window.__ppCheckKidReset = checkKidResetFromRow;
+  window.__ppRenderKidPickGrid = () => { try { renderKidPickGrid(); } catch(_){} };
+
+  // ===== END KID-MODE LOCKDOWN =====
+
+  async function onFamilyReady(){
+    if (!familyId) return;
+    // If this is a kid device, lock the UI down immediately so the parent
+    // user-select screen never flashes.
+    if (role === 'child') enterKidMode();
+    if (role === 'parent') {
+      try { document.body.classList.add('pp-parent-mode'); } catch(_){}
+    }
+    wrapLocalWriters();
+    // Wait until the local _mem arrays exist (init() finished basic setup)
+    for (let i=0; i<40 && (typeof _memChores === 'undefined'); i++){
+      await new Promise(r => setTimeout(r, 100));
+    }
+    await pullAndMerge();
+    subscribeRealtime();
+    if (role === 'child'){
+      await initKidMode();
+    } else if (role === 'parent'){
+      // Parent: now that sync has hydrated users, hide the avatar picker and
+      // route straight to parent settings. CSS already hides userSelectScreen,
+      // but init() left #app hidden — show it and render.
+      // ===== DIAGNOSTIC: watch which views get .active and who's stealing it =====
+      try {
+        if (!window.__ppViewObserver){
+          window.__ppViewObserver = true;
+          document.querySelectorAll('.view').forEach(v => {
+            const mo = new MutationObserver((muts) => {
+              muts.forEach(m => {
+                if (m.attributeName === 'class'){
+                  const has = v.classList.contains('active');
+                  console.log('[PuzzlePig view]', v.id, has ? 'GAINED active' : 'LOST active', 'stack:', new Error().stack.split('\n').slice(2,5).join(' <- '));
+                }
+              });
+            });
+            mo.observe(v, { attributes: true, attributeFilter: ['class'] });
+          });
+          console.log('[PuzzlePig] view observer installed for', document.querySelectorAll('.view').length, 'views');
+        }
+      } catch(_){ }
+      const routeParent = () => {
+        try {
+          // Aggressively hide userSelectScreen: inline style, attribute, AND remove from layout
+          const sel = document.getElementById('userSelectScreen');
+          if (sel) {
+            sel.style.cssText = 'display:none !important; visibility:hidden !important; height:0 !important; overflow:hidden !important;';
+            sel.setAttribute('hidden', 'hidden');
+          }
+          // Ensure body class is set so CSS rule kicks in too
+          try { document.body.classList.add('pp-parent-mode'); } catch(_){}
+          // Hide the main header (Puzzle Pig logo + tagline) and bottom nav on parent device
+          const mh = document.getElementById('mainHeader');
+          if (mh) mh.style.cssText = 'display:none !important;';
+          const bn = document.getElementById('bottomNav');
+          if (bn) bn.style.cssText = 'display:none !important;';
+          const cb = document.getElementById('currentUserBar');
+          if (cb) cb.style.cssText = 'display:none !important;';
+          const appEl = document.getElementById('app');
+          if (appEl) appEl.style.display = '';
+          // Make sure visible users array has data from sync
+          if (typeof _memUsers !== 'undefined' && _memUsers.length > 0){
+            window.users = _memUsers.map(u => JSON.parse(JSON.stringify(u)));
+          }
+          if (typeof showView === 'function') showView('parentSettingsView');
+          // Belt-and-suspenders: explicitly clear .active from any view that isn't parentSettings
+          document.querySelectorAll('.view').forEach(v => {
+            if (v.id !== 'parentSettingsView') v.classList.remove('active');
+          });
+          const ps = document.getElementById('parentSettingsView');
+          if (ps && !ps.classList.contains('active')) ps.classList.add('active');
+          console.log('[PuzzlePig parent] routed to parentSettingsView, users=', (window.users && window.users.length), 'innerHTML.length=', (ps ? ps.innerHTML.length : 'n/a'));
+          // EXPLICIT awaited render with full error logging — showView fires it async without catch
+          if (typeof renderParentSettings === 'function'){
+            Promise.resolve().then(() => renderParentSettings())
+              .then(() => {
+                const ps2 = document.getElementById('parentSettingsView');
+                console.log('[PuzzlePig parent] renderParentSettings OK, innerHTML.length=', ps2 ? ps2.innerHTML.length : 'n/a');
+              })
+              .catch(err => {
+                console.error('[PuzzlePig parent] renderParentSettings FAILED:', err && err.stack ? err.stack : err);
+                // Fallback minimal UI so the user has SOMETHING to click
+                const ps2 = document.getElementById('parentSettingsView');
+                if (ps2 && ps2.innerHTML.length < 200){
+                  ps2.innerHTML = '<div style="padding:24px;font-family:system-ui;"><h2 style="margin:0 0 12px;">Parent Settings</h2><p style="color:#b00;margin:0 0 16px;">The settings page failed to load. Check console for the red error above.</p><button onclick="location.reload()" style="padding:10px 16px;border-radius:8px;border:1px solid #888;background:#fff;cursor:pointer;">Reload</button></div>';
+                }
+              });
+          }
+        } catch(e){ console.warn('[PuzzlePig parent] route failed', e); }
+      };
+      routeParent();
+      // Re-route a couple times to defeat any late showView calls from init() or other handlers
+      setTimeout(routeParent, 200);
+      setTimeout(routeParent, 800);
+    }
+  }
+
+  // ---------- boot ----------
+  async function bootSync(){
+    wireSetupUI();
+    const ok = await ensureAnonAuth();
+    if (!ok){
+      // Allow user to retry via the overlay buttons
+      showSetupOverlay();
+      return;
+    }
+    if (familyId && role){
+      // Returning user
+      hideSetupOverlay();
+      await onFamilyReady();
+    } else {
+      showSetupOverlay();
+    }
+  }
+
+  // Run after DOM + main script have set up DOM elements
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', () => setTimeout(bootSync, 0));
+  } else {
+    setTimeout(bootSync, 0);
+  }
+
+  // Expose a tiny debug + parent-side API
+  window.ppSync = {
+    forcePull: pullAndMerge,
+    state: () => ({ familyId, role, familyCode, authUserId, kidLockedUserId }),
+    reset: () => {
+      localStorage.removeItem(LS_FAMILY_ID);
+      localStorage.removeItem(LS_ROLE);
+      localStorage.removeItem(LS_CODE);
+      localStorage.removeItem(LS_KID_USER_ID);
+      localStorage.removeItem(LS_KID_RESET_TOKEN);
+      location.reload();
+    },
+    // Diagnostic: dump everything we know about sync state
+    diag: async () => {
+      const out = {
+        role, familyId, familyCode, authUserId, kidLockedUserId,
+        memUsers: (typeof _memUsers !== 'undefined' ? _memUsers : null),
+        realtimeStatus: realtimeChannel ? realtimeChannel.state : 'none'
+      };
+      try {
+        const { data, error } = await sb.from('family_users').select('*').eq('family_id', familyId);
+        out.dbUsers = data;
+        out.dbUsersError = error ? error.message : null;
+      } catch(e){ out.dbUsersError = String(e); }
+      console.log('[PuzzlePig DIAG]', out);
+      return out;
+    },
+    // Parent action: unlink a kid's phone by rotating their reset_token.
+    // The kid device will see the change via realtime and drop back to the picker.
+    unlinkKidDevice: async (kidLocalId) => {
+      if (!familyId || !kidLocalId) return { ok:false, error:'missing args' };
+      const newTok = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('r_' + Date.now() + '_' + Math.random().toString(36).slice(2));
+      try {
+        const { error } = await sb.from('family_users')
+          .update({ reset_token: newTok, device_claimed_at: null })
+          .eq('family_id', familyId)
+          .eq('local_id', kidLocalId);
+        if (error) return { ok:false, error: error.message || String(error) };
+        // Update local mirror so parent UI reflects immediately
+        try {
+          const u = (typeof users !== 'undefined' ? users : []).find(x => x.id === kidLocalId);
+          if (u) { u.reset_token = newTok; u.device_claimed_at = null; }
+        } catch(_){}
+        return { ok:true, token: newTok };
+      } catch(e){
+        return { ok:false, error: String(e) };
+      }
+    },
+    // v=42: Kid device claims an identity — mark device_claimed_at on family_users
+    markDeviceClaimed: async (kidLocalId) => {
+      if (!familyId || !kidLocalId) return { ok:false };
+      try {
+        const nowIso = new Date().toISOString();
+        const { error } = await sb.from('family_users')
+          .update({ device_claimed_at: nowIso })
+          .eq('family_id', familyId)
+          .eq('local_id', kidLocalId);
+        if (error) { console.warn('[PuzzlePig sync] markDeviceClaimed error', error); return { ok:false, error: error.message }; }
+        return { ok:true };
+      } catch(e){ return { ok:false, error: String(e) }; }
+    }
+  };
+})();
+// ===== END SUPABASE SYNC =====
+</script>
+
+<!-- ===== PUZZLE PIG DEMO RUNTIME ===== -->
+<script>
+(function(){
+  if (!window.__PP_DEMO__) return;
+
+  // ---------- Demo seed ----------
+  window.__demoSeedAll = async function(){
+    var SOPHIE = window.__PP_DEMO_SOPHIE_ID__;
+    var JACKSON = window.__PP_DEMO_JACKSON_ID__;
+    var now = new Date().toISOString();
+
+    // Users
+    await dbPutUser({ id: SOPHIE,  name: 'Sophie',  pin: '1234', avatar: null });
+    await dbPutUser({ id: JACKSON, name: 'Jackson', pin: '1234', avatar: null });
+
+    // PIN for parent (default 1234 — shown in the demo banner)
+    await dbPutSetting('parentPin', '1234');
+    await dbPutSetting('hasSeenGuide', true);
+
+    // Jars (Save / Spend / Give) for each kid
+    var defaultJars = [
+      { type:'save',  name:'Save',  color:'#27AE60' },
+      { type:'spend', name:'Spend', color:'#2980B9' },
+      { type:'give',  name:'Give',  color:'#E74C3C' },
+    ];
+    var jarBalances = {};
+    jarBalances[SOPHIE]  = { save: 34, spend: 6, give: 3 };
+    jarBalances[JACKSON] = { save: 12, spend: 4, give: 2 };
+
+    for (var u = 0; u < 2; u++) {
+      var uid = u === 0 ? SOPHIE : JACKSON;
+      for (var i = 0; i < defaultJars.length; i++) {
+        var d = defaultJars[i];
+        await dbPutJar({
+          id: 'jar_demo_' + uid + '_' + d.type,
+          userId: uid,
+          name: d.name,
+          type: d.type,
+          balance: jarBalances[uid][d.type],
+          color: d.color,
+          order: i,
+          createdAt: now,
+        });
+      }
+    }
+
+    // Jar transactions (a few each so the edit/delete UI has something to show)
+    var demoTxs = [
+      { jar:'spend', userId:SOPHIE, type:'deposit',  amount:5, note:'Birthday from Grandma' },
+      { jar:'spend', userId:SOPHIE, type:'withdraw', amount:2, note:'Bought stickers' },
+      { jar:'give',  userId:SOPHIE, type:'deposit',  amount:3, note:'Saving for animal shelter' },
+      { jar:'spend', userId:JACKSON, type:'deposit', amount:4, note:'Tooth fairy' },
+      { jar:'give',  userId:JACKSON, type:'deposit', amount:2, note:'Church donation' },
+    ];
+    for (var t = 0; t < demoTxs.length; t++) {
+      var tx = demoTxs[t];
+      await dbPutJarTx({
+        id: 'jartx_demo_' + t,
+        userId: tx.userId,
+        jarId: 'jar_demo_' + tx.userId + '_' + tx.jar,
+        type: tx.type,
+        amount: tx.amount,
+        note: tx.note,
+        date: now,
+        createdAt: now,
+      });
+    }
+
+    // Chores — varied amounts to show the parent can set whatever
+    var chores = [
+      { name:'Make bed',            amount:0.50, recurring:'daily',    days:[], to:[SOPHIE, JACKSON] },
+      { name:'Feed Buster',         amount:0.75, recurring:'daily',    days:[], to:[SOPHIE] },
+      { name:'Empty dishwasher',    amount:1.00, recurring:'daily',    days:[], to:[JACKSON] },
+      { name:'Homework',            amount:1.00, recurring:'specific', days:[1,2,3,4,5], to:[SOPHIE, JACKSON] },
+      { name:'Clean room',          amount:2.00, recurring:'weekly',   days:[], to:[SOPHIE, JACKSON] },
+      { name:'Take out trash',      amount:1.50, recurring:'weekly',   days:[], to:[JACKSON] },
+      { name:'Practice piano',      amount:1.00, recurring:'specific', days:[1,3,5], to:[SOPHIE] },
+      { name:'Water the plants',    amount:0.50, recurring:'weekly',   days:[], to:[SOPHIE, JACKSON] },
+      { name:'Vacuum living room',  amount:3.00, recurring:'weekly',   days:[], to:[JACKSON] },
+    ];
+    for (var c = 0; c < chores.length; c++) {
+      var ch = chores[c];
+      await dbPutChore({
+        id: 'chore_demo_' + c,
+        name: ch.name,
+        amount: ch.amount,
+        recurring: ch.recurring,
+        choreDays: ch.days,
+        assignedTo: ch.to,
+        createdAt: now,
+      });
+    }
+
+    // Pending chore_logs — these are the "kid tapped I did it!" events
+    // waiting for parent approval. Two pending so the approve flow is visible.
+    var todayStr = new Date().toISOString().split('T')[0];
+    await dbPutChoreLog({
+      id: 'log_demo_1',
+      choreId: 'chore_demo_0', // Make bed
+      userId: SOPHIE,
+      date: todayStr,
+      status: 'pending',
+      amount: 0.50,
+      timestamp: now,
+    });
+    await dbPutChoreLog({
+      id: 'log_demo_2',
+      choreId: 'chore_demo_2', // Empty dishwasher
+      userId: JACKSON,
+      date: todayStr,
+      status: 'pending',
+      amount: 1.00,
+      timestamp: now,
+    });
+    // A couple already-approved logs so history isn't empty
+    await dbPutChoreLog({
+      id: 'log_demo_3',
+      choreId: 'chore_demo_1', // Feed Buster
+      userId: SOPHIE,
+      date: todayStr,
+      status: 'approved',
+      amount: 0.75,
+      timestamp: now,
+    });
+    await dbPutChoreLog({
+      id: 'log_demo_4',
+      choreId: 'chore_demo_5', // Take out trash
+      userId: JACKSON,
+      date: todayStr,
+      status: 'approved',
+      amount: 1.50,
+      timestamp: now,
+    });
+
+    // Goals — partial progress so the puzzle reveal is mid-state and eye-catching
+    // Sophie: $34 of $50 skateboard goal (68% revealed)
+    // Jackson: $12 of $25 LEGO goal (48% revealed)
+    var sophiePuzzleImg = window.__PP_DEMO_DEFAULT_IMG__;
+    var jacksonPuzzleImg = window.__PP_DEMO_DEFAULT_IMG__;
+    await dbPut({
+      id: 'goal_demo_sophie',
+      userId: SOPHIE,
+      name: 'New Skateboard',
+      goalAmount: 50,
+      goalDate: '',
+      category: 'Sports',
+      imageData: sophiePuzzleImg,
+      history: [
+        { amount: 10, date: now, note: 'Earned from chores' },
+        { amount: 12, date: now, note: 'Earned from chores' },
+        { amount: 7,  date: now, note: 'Birthday gift from Grandma' },
+        { amount: 5,  date: now, note: 'Earned from chores' },
+      ],
+      createdAt: now,
+    });
+    await dbPut({
+      id: 'goal_demo_jackson',
+      userId: JACKSON,
+      name: 'LEGO Set',
+      goalAmount: 25,
+      goalDate: '',
+      category: 'Toys',
+      imageData: jacksonPuzzleImg,
+      history: [
+        { amount: 5, date: now, note: 'Earned from chores' },
+        { amount: 4, date: now, note: 'Tooth fairy money' },
+        { amount: 3, date: now, note: 'Earned from chores' },
+      ],
+      createdAt: now,
+    });
+  };
+
+  // ---------- Default goal image (simple colorful placeholder) ----------
+  // 1x1 transparent fallback — the app shows a category emoji if image is empty
+  window.__PP_DEMO_DEFAULT_IMG__ = '';
+
+  // ---------- Role switcher ----------
+  window.__demoSwitchRole = async function(target /* 'parent' | 'sophie' | 'jackson' */){
+    var SOPHIE = window.__PP_DEMO_SOPHIE_ID__;
+    var JACKSON = window.__PP_DEMO_JACKSON_ID__;
+    document.body.classList.remove('pp-parent-mode', 'pp-kid-mode');
+    var app = document.getElementById('app');
+    var userSel = document.getElementById('userSelectScreen');
+    var famSetup = document.getElementById('familySetupScreen');
+    var kidPick  = document.getElementById('kidPickScreen');
+
+    // Hide setup screens (they should never appear in demo)
+    if (famSetup) famSetup.style.display = 'none';
+    if (kidPick)  kidPick.style.display  = 'none';
+
+    if (target === 'parent') {
+      document.body.classList.add('pp-parent-mode');
+      localStorage.setItem('pp_role', 'parent');
+      // Parent landing = userSelectScreen with parent unlocked
+      if (typeof parentUnlocked !== 'undefined') window.parentUnlocked = true;
+      try { window.parentUnlocked = true; } catch(_){}
+      if (app)     app.style.display = 'none';
+      if (userSel) userSel.style.display = '';
+      if (typeof renderUserSelect === 'function') renderUserSelect();
+    } else {
+      // Kid view
+      document.body.classList.add('pp-kid-mode');
+      localStorage.setItem('pp_role', 'child');
+      var kidId = (target === 'sophie') ? SOPHIE : JACKSON;
+      localStorage.setItem('pp_kid_user_id', kidId);
+      if (userSel) userSel.style.display = 'none';
+      if (app)     app.style.display = '';
+      if (typeof selectUser === 'function') await selectUser(kidId);
+      if (typeof showView === 'function')   showView('homeView');
+    }
+    __demoUpdateBarActive(target);
+  };
+
+  // ---------- Demo bar UI ----------
+  function __demoBuildBar(){
+    if (document.getElementById('demoBar')) return;
+    var bar = document.createElement('div');
+    bar.id = 'demoBar';
+    bar.innerHTML = ''
+      + '<div class="demo-bar-inner">'
+      + '  <span class="demo-label">DEMO &middot; parent PIN: <b>1234</b></span>'
+      + '  <div class="demo-roles">'
+      + '    <button class="demo-role-btn" data-role="parent">Parent</button>'
+      + '    <button class="demo-role-btn" data-role="sophie">Sophie</button>'
+      + '    <button class="demo-role-btn" data-role="jackson">Jackson</button>'
+      + '  </div>'
+      + '  <button class="demo-reset" title="Reset demo">&#x21bb; Reset</button>'
+      + '</div>';
+    document.body.appendChild(bar);
+
+    bar.querySelectorAll('.demo-role-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        window.__demoSwitchRole(btn.getAttribute('data-role'));
+      });
+    });
+    bar.querySelector('.demo-reset').addEventListener('click', function(){
+      location.reload();
+    });
+  }
+  window.__demoUpdateBarActive = function(target){
+    document.querySelectorAll('#demoBar .demo-role-btn').forEach(function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-role') === target);
+    });
+  };
+
+  // Inject styles for the demo bar
+  var style = document.createElement('style');
+  style.textContent = ''
+    + '#demoBar { position:fixed; top:0; left:0; right:0; z-index:99999;'
+    + '  background:linear-gradient(135deg,#1F2937,#374151); color:#fff;'
+    + '  font-family:system-ui,-apple-system,sans-serif; font-size:13px;'
+    + '  box-shadow:0 2px 8px rgba(0,0,0,0.25); }'
+    + '#demoBar .demo-bar-inner { display:flex; align-items:center; justify-content:space-between;'
+    + '  gap:10px; padding:8px 12px; max-width:1100px; margin:0 auto; flex-wrap:wrap; }'
+    + '#demoBar .demo-label { font-weight:600; opacity:0.92; }'
+    + '#demoBar .demo-label b { color:#FCD34D; letter-spacing:1px; }'
+    + '#demoBar .demo-roles { display:flex; gap:6px; }'
+    + '#demoBar .demo-role-btn { background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2);'
+    + '  padding:6px 14px; border-radius:999px; cursor:pointer; font-size:13px; font-weight:600;'
+    + '  transition:all 0.15s; }'
+    + '#demoBar .demo-role-btn:hover { background:rgba(255,255,255,0.18); }'
+    + '#demoBar .demo-role-btn.active { background:#A78BFA; border-color:#A78BFA; color:#1F2937; }'
+    + '#demoBar .demo-reset { background:transparent; color:#fff; border:1px solid rgba(255,255,255,0.25);'
+    + '  padding:6px 12px; border-radius:999px; cursor:pointer; font-size:12px; opacity:0.85; }'
+    + '#demoBar .demo-reset:hover { opacity:1; background:rgba(255,255,255,0.1); }'
+    + 'body { padding-top:52px !important; }'
+    + '@media (max-width:480px) { #demoBar .demo-bar-inner { gap:6px; padding:6px 8px; }'
+    + '  #demoBar .demo-label { font-size:11px; flex-basis:100%; text-align:center; order:1; }'
+    + '  #demoBar .demo-roles { order:2; }'
+    + '  #demoBar .demo-reset { order:3; }'
+    + '  #demoBar .demo-role-btn { padding:5px 10px; font-size:12px; }'
+    + '  body { padding-top:84px !important; } }';
+  document.head.appendChild(style);
+
+  // Mount the bar once DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', __demoBuildBar);
+  } else {
+    __demoBuildBar();
+  }
+
+  // After init() finishes, force the parent landing (in case CSS race-conditions
+  // briefly flash other screens).
+  function __landParent(){
+    if (typeof renderUserSelect === 'function' && typeof users !== 'undefined' && users && users.length > 0) {
+      __demoUpdateBarActive('parent');
+    } else {
+      setTimeout(__landParent, 100);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(__landParent, 200); });
+  } else {
+    setTimeout(__landParent, 200);
+  }
+})();
+</script>
+<!-- ===== END DEMO RUNTIME ===== -->
 </body>
 </html>
