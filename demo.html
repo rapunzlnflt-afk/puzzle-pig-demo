@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Puzzle Pig — Live Demo (Parent + Kid Side by Side)</title>
+<meta name="description" content="See both sides at once: a kid completes a chore on the left, the parent approves it on the right.">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, #6B4E94 0%, #9375BA 100%);
+    color:#2D2738;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+
+  header {
+    text-align:center;
+    color:white;
+    padding: 18px 16px 14px;
+    flex-shrink:0;
+  }
+  header h1 { font-size:1.4rem; margin-bottom:4px; font-weight:700; }
+  header p { font-size:0.9rem; opacity:0.9; }
+  header .pin-note { font-size:0.78rem; opacity:0.78; margin-top:6px; }
+  header .pin-note b { font-family:monospace; letter-spacing:1.5px; }
+
+  .arrow-bar {
+    display:flex; align-items:center; justify-content:center;
+    gap:14px; flex-shrink:0;
+    padding: 0 16px 8px;
+    color: #ffe9b3;
+    font-size: 0.82rem;
+    font-weight:600;
+  }
+  .arrow-bar .arrow { font-size:1.1rem; opacity:0.85; }
+
+  .stage {
+    flex:1;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:20px;
+    padding: 0 20px 20px;
+    min-height:0;
+  }
+
+  .pane {
+    background:white;
+    border-radius:22px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+  }
+  .pane-head {
+    padding: 10px 14px;
+    background:#F0ECF7;
+    border-bottom:1px solid #E0D7EF;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px;
+    flex-shrink:0;
+  }
+  .pane-head .who {
+    display:flex; align-items:center; gap:8px;
+    font-size:0.95rem; font-weight:700; color:#5C4287;
+  }
+  .pane-head .badge {
+    background:#5C4287; color:white; border-radius:999px;
+    padding:3px 10px; font-size:0.7rem; font-weight:700; letter-spacing:0.5px;
+  }
+  .pane-head .badge.parent { background:#2980B9; }
+  .pane-head .device {
+    font-size:0.72rem; color:#7A6B95; font-weight:500;
+  }
+  .pane-body {
+    flex:1;
+    min-height:0;
+    position:relative;
+    background:#f5f3fa;
+  }
+  iframe {
+    width:100%;
+    height:100%;
+    border:0;
+    display:block;
+  }
+
+  /* Tab switcher — mobile only */
+  .tabs { display:none; }
+  @media (max-width: 820px) {
+    .stage { grid-template-columns: 1fr; gap:0; padding: 0 12px 12px; }
+    .tabs {
+      display:flex; gap:8px;
+      padding: 0 12px 10px;
+      flex-shrink:0;
+    }
+    .tabs button {
+      flex:1;
+      padding:10px 12px;
+      border:0; border-radius:10px;
+      background: rgba(255,255,255,0.18);
+      color:white;
+      font-weight:700; font-size:0.9rem;
+      cursor:pointer;
+    }
+    .tabs button.active { background:white; color:#5C4287; }
+    .pane { display:none; }
+    .pane.active { display:flex; }
+    header { padding: 14px 12px 8px; }
+    header h1 { font-size:1.15rem; }
+    header p { font-size:0.82rem; }
+    .arrow-bar { display:none; }
+  }
+
+  footer {
+    text-align:center;
+    color:rgba(255,255,255,0.85);
+    font-size:0.78rem;
+    padding: 0 16px 12px;
+    flex-shrink:0;
+  }
+  footer a { color:#ffe9b3; text-decoration:underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>See Puzzle Pig in action</h1>
+  <p>Sophie's phone on the left. Mom or Dad's phone on the right. Watch them sync.</p>
+  <div class="pin-note">Parent PIN (inside the app, if asked): <b>12345</b></div>
+</header>
+
+<div class="arrow-bar">
+  <span>Try this:</span>
+  <span class="arrow">&#8594;</span>
+  <span>Tap <b>I Did It!</b> on Sophie's chore</span>
+  <span class="arrow">&#8594;</span>
+  <span>Approve it on the parent side</span>
+  <span class="arrow">&#8594;</span>
+  <span>Watch Sophie's puzzle reveal grow</span>
+</div>
+
+<div class="tabs" role="tablist">
+  <button id="tabKid" class="active" type="button">Sophie's phone</button>
+  <button id="tabParent" type="button">Parent's phone</button>
+</div>
+
+<main class="stage">
+  <section class="pane active" id="paneKid">
+    <div class="pane-head">
+      <div class="who">
+        <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#E8A2C7;color:white;font-size:0.75rem;font-weight:700;text-align:center;line-height:22px;">S</span>
+        Sophie
+        <span class="badge">KID</span>
+      </div>
+      <div class="device">on her phone</div>
+    </div>
+    <div class="pane-body">
+      <iframe src="app.html?role=sophie" title="Sophie's phone" loading="eager"></iframe>
+    </div>
+  </section>
+
+  <section class="pane" id="paneParent">
+    <div class="pane-head">
+      <div class="who">
+        <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#5C4287;color:white;font-size:0.75rem;font-weight:700;text-align:center;line-height:22px;">P</span>
+        Parent
+        <span class="badge parent">PARENT</span>
+      </div>
+      <div class="device">on their phone</div>
+    </div>
+    <div class="pane-body">
+      <iframe src="app.html?role=parent" title="Parent's phone" loading="eager"></iframe>
+    </div>
+  </section>
+</main>
+
+<footer>
+  This is a demo — data resets when you refresh. &nbsp;
+  <a href="https://www.etsy.com/listing/4490566794/">Get the full version on Etsy</a>
+</footer>
+
+<script>
+  // Mobile tab switching
+  var tabKid    = document.getElementById('tabKid');
+  var tabParent = document.getElementById('tabParent');
+  var paneKid    = document.getElementById('paneKid');
+  var paneParent = document.getElementById('paneParent');
+  function show(which){
+    if (which === 'kid'){
+      tabKid.classList.add('active');    tabParent.classList.remove('active');
+      paneKid.classList.add('active');   paneParent.classList.remove('active');
+    } else {
+      tabParent.classList.add('active'); tabKid.classList.remove('active');
+      paneParent.classList.add('active');paneKid.classList.remove('active');
+    }
+  }
+  tabKid.addEventListener('click', function(){ show('kid'); });
+  tabParent.addEventListener('click', function(){ show('parent'); });
+</script>
+
+</body>
+</html>

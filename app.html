@@ -11,7 +11,18 @@
   window.__PP_DEMO_FAMILY_ID__ = 'demo-family-fixed-id';
   window.__PP_DEMO_FAMILY_CODE__ = 'DEMO01';
   window.__PP_DEMO_SOPHIE_ID__ = 'demo_kid_sophie';
-  window.__PP_DEMO_JACKSON_ID__ = 'demo_kid_jackson';
+
+  // Read ?role= query param so the side-by-side wrapper (demo.html) can
+  // auto-route each iframe to Sophie or Parent without the buyer having
+  // to tap through the sign-in cards.
+  var __ppDemoRole = null;
+  try {
+    var qp = new URLSearchParams(location.search);
+    var r = (qp.get('role') || '').toLowerCase();
+    if (r === 'sophie' || r === 'kid' || r === 'child') __ppDemoRole = 'sophie';
+    else if (r === 'parent') __ppDemoRole = 'parent';
+  } catch(_){}
+  window.__PP_DEMO_ROLE__ = __ppDemoRole;
 
   // Wipe localStorage of any pp_* keys + supabase auth
   try {
@@ -23,14 +34,20 @@
     rmKeys.forEach(function(k){ localStorage.removeItem(k); });
   } catch(_){}
 
-  // Seed localStorage so the app boots straight into parent mode
-  // (skips family-code entry screen)
+  // Seed localStorage so the app boots straight into demo mode
   try {
     localStorage.setItem('pp_family_id', window.__PP_DEMO_FAMILY_ID__);
     localStorage.setItem('pp_family_code', window.__PP_DEMO_FAMILY_CODE__);
-    // NOTE: deliberately NOT seeding pp_role here — we want the buyer to
-    // see the real sign-in page (Sophie / Jackson / Parent cards) and pick
-    // a role themselves. Setting pp_role hides #userSelectScreen via CSS.
+    // If a role is specified via ?role=, pre-set pp_role / pp_kid_user_id
+    // so the user-select screen is skipped entirely and the iframe goes
+    // straight to the right view. Without ?role= we fall back to the
+    // normal sign-in page (used when /app.html is opened directly).
+    if (__ppDemoRole === 'sophie') {
+      localStorage.setItem('pp_role', 'child');
+      localStorage.setItem('pp_kid_user_id', window.__PP_DEMO_SOPHIE_ID__);
+    } else if (__ppDemoRole === 'parent') {
+      localStorage.setItem('pp_role', 'parent');
+    }
   } catch(_){}
 
   // The demo uses its own IndexedDB ('PuzzlePigDemoDB') so it never collides
@@ -7672,73 +7689,61 @@ init();
 (function(){
   if (!window.__PP_DEMO__) return;
 
+  var ROLE = window.__PP_DEMO_ROLE__ || null;  // 'sophie' | 'parent' | null
+
+  // Skateboard photo for Sophie's goal — embedded so the puzzle reveal works
+  // offline and the demo has no external dependencies.
+  window.__PP_DEMO_SKATEBOARD_IMG__ = 'data:image/jpeg;base64,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';
+
   // ---------- Demo seed ----------
   window.__demoSeedAll = async function(){
     var SOPHIE = window.__PP_DEMO_SOPHIE_ID__;
-    var JACKSON = window.__PP_DEMO_JACKSON_ID__;
     var now = new Date().toISOString();
+    var nowIso = now;
 
-    // Users
-    // total_saved and device_claimed_at are normally synced from Supabase;
-    // in demo mode we seed them directly so the parent dashboard shows the
-    // correct earned amounts and the green 'Phone linked' pill.
-    var nowIso = new Date().toISOString();
+    // Single child: Sophie. Side-by-side demo only shows one kid + parent.
     await dbPutUser({
-      id: SOPHIE,  name: 'Sophie',  pin: '1234', avatar: null,
+      id: SOPHIE, name: 'Sophie', pin: '1234', avatar: null,
       total_saved: 43,        // Save $34 + Spend $6 + Give $3
       device_claimed_at: nowIso
     });
-    await dbPutUser({
-      id: JACKSON, name: 'Jackson', pin: '1234', avatar: null,
-      total_saved: 18,        // Save $12 + Spend $4 + Give $2
-      device_claimed_at: nowIso
-    });
 
-    // PIN for parent (default 1234 — shown in the demo banner)
+    // PIN for parent (shown on the demo landing page)
     await dbPutSetting('parentPin', '12345');
     await dbPutSetting('hasSeenGuide', true);
 
-    // Jars (Save / Spend / Give) for each kid
+    // Jars (Save / Spend / Give)
     var defaultJars = [
-      { type:'save',  name:'Save',  color:'#27AE60' },
-      { type:'spend', name:'Spend', color:'#2980B9' },
-      { type:'give',  name:'Give',  color:'#E74C3C' },
+      { type:'save',  name:'Save',  color:'#27AE60', balance: 34 },
+      { type:'spend', name:'Spend', color:'#2980B9', balance: 6  },
+      { type:'give',  name:'Give',  color:'#E74C3C', balance: 3  },
     ];
-    var jarBalances = {};
-    jarBalances[SOPHIE]  = { save: 34, spend: 6, give: 3 };
-    jarBalances[JACKSON] = { save: 12, spend: 4, give: 2 };
-
-    for (var u = 0; u < 2; u++) {
-      var uid = u === 0 ? SOPHIE : JACKSON;
-      for (var i = 0; i < defaultJars.length; i++) {
-        var d = defaultJars[i];
-        await dbPutJar({
-          id: 'jar_demo_' + uid + '_' + d.type,
-          userId: uid,
-          name: d.name,
-          type: d.type,
-          balance: jarBalances[uid][d.type],
-          color: d.color,
-          order: i,
-          createdAt: now,
-        });
-      }
+    for (var i = 0; i < defaultJars.length; i++) {
+      var d = defaultJars[i];
+      await dbPutJar({
+        id: 'jar_demo_' + SOPHIE + '_' + d.type,
+        userId: SOPHIE,
+        name: d.name,
+        type: d.type,
+        balance: d.balance,
+        color: d.color,
+        order: i,
+        createdAt: now,
+      });
     }
 
-    // Jar transactions (a few each so the edit/delete UI has something to show)
+    // Jar transactions for edit/delete UI
     var demoTxs = [
-      { jar:'spend', userId:SOPHIE, type:'deposit',  amount:5, note:'Birthday from Grandma' },
-      { jar:'spend', userId:SOPHIE, type:'withdraw', amount:2, note:'Bought stickers' },
-      { jar:'give',  userId:SOPHIE, type:'deposit',  amount:3, note:'Saving for animal shelter' },
-      { jar:'spend', userId:JACKSON, type:'deposit', amount:4, note:'Tooth fairy' },
-      { jar:'give',  userId:JACKSON, type:'deposit', amount:2, note:'Church donation' },
+      { jar:'spend', type:'deposit',  amount:5, note:'Birthday from Grandma' },
+      { jar:'spend', type:'withdraw', amount:2, note:'Bought stickers' },
+      { jar:'give',  type:'deposit',  amount:3, note:'Saving for animal shelter' },
     ];
     for (var t = 0; t < demoTxs.length; t++) {
       var tx = demoTxs[t];
       await dbPutJarTx({
         id: 'jartx_demo_' + t,
-        userId: tx.userId,
-        jarId: 'jar_demo_' + tx.userId + '_' + tx.jar,
+        userId: SOPHIE,
+        jarId: 'jar_demo_' + SOPHIE + '_' + tx.jar,
         type: tx.type,
         amount: tx.amount,
         note: tx.note,
@@ -7747,17 +7752,14 @@ init();
       });
     }
 
-    // Chores — varied amounts to show the parent can set whatever
+    // Chores — all assigned to Sophie. Varied amounts.
     var chores = [
-      { name:'Make bed',            amount:0.50, recurring:'daily',    days:[], to:[SOPHIE, JACKSON] },
-      { name:'Feed Buster',         amount:0.75, recurring:'daily',    days:[], to:[SOPHIE] },
-      { name:'Empty dishwasher',    amount:1.00, recurring:'daily',    days:[], to:[JACKSON] },
-      { name:'Homework',            amount:1.00, recurring:'specific', days:[1,2,3,4,5], to:[SOPHIE, JACKSON] },
-      { name:'Clean room',          amount:2.00, recurring:'weekly',   days:[], to:[SOPHIE, JACKSON] },
-      { name:'Take out trash',      amount:1.50, recurring:'weekly',   days:[], to:[JACKSON] },
-      { name:'Practice piano',      amount:1.00, recurring:'specific', days:[1,3,5], to:[SOPHIE] },
-      { name:'Water the plants',    amount:0.50, recurring:'weekly',   days:[], to:[SOPHIE, JACKSON] },
-      { name:'Vacuum living room',  amount:3.00, recurring:'weekly',   days:[], to:[JACKSON] },
+      { name:'Make bed',           amount:0.50, recurring:'daily',    days:[] },
+      { name:'Feed Buster',        amount:0.75, recurring:'daily',    days:[] },
+      { name:'Homework',           amount:1.00, recurring:'specific', days:[1,2,3,4,5] },
+      { name:'Clean room',         amount:2.00, recurring:'weekly',   days:[] },
+      { name:'Practice piano',     amount:1.00, recurring:'specific', days:[1,3,5] },
+      { name:'Water the plants',   amount:0.50, recurring:'weekly',   days:[] },
     ];
     for (var c = 0; c < chores.length; c++) {
       var ch = chores[c];
@@ -7767,13 +7769,12 @@ init();
         amount: ch.amount,
         recurring: ch.recurring,
         choreDays: ch.days,
-        assignedTo: ch.to,
+        assignedTo: [SOPHIE],
         createdAt: now,
       });
     }
 
-    // Pending chore_logs — these are the "kid tapped I did it!" events
-    // waiting for parent approval. Two pending so the approve flow is visible.
+    // Pending chore_log — "Sophie tapped I did it!" waiting for parent.
     var todayStr = new Date().toISOString().split('T')[0];
     await dbPutChoreLog({
       id: 'log_demo_1',
@@ -7784,16 +7785,7 @@ init();
       amount: 0.50,
       timestamp: now,
     });
-    await dbPutChoreLog({
-      id: 'log_demo_2',
-      choreId: 'chore_demo_2', // Empty dishwasher
-      userId: JACKSON,
-      date: todayStr,
-      status: 'pending',
-      amount: 1.00,
-      timestamp: now,
-    });
-    // A couple already-approved logs so history isn't empty
+    // Already-approved log so history is not empty
     await dbPutChoreLog({
       id: 'log_demo_3',
       choreId: 'chore_demo_1', // Feed Buster
@@ -7803,21 +7795,9 @@ init();
       amount: 0.75,
       timestamp: now,
     });
-    await dbPutChoreLog({
-      id: 'log_demo_4',
-      choreId: 'chore_demo_5', // Take out trash
-      userId: JACKSON,
-      date: todayStr,
-      status: 'approved',
-      amount: 1.50,
-      timestamp: now,
-    });
 
-    // Goals — partial progress so the puzzle reveal is mid-state and eye-catching
+    // Goal — partial progress so the puzzle reveal is visible
     // Sophie: $34 of $50 skateboard goal (68% revealed)
-    // Jackson: $12 of $25 LEGO goal (48% revealed)
-    var sophiePuzzleImg = window.__PP_DEMO_DEFAULT_IMG__;
-    var jacksonPuzzleImg = window.__PP_DEMO_DEFAULT_IMG__;
     await dbPut({
       id: 'goal_demo_sophie',
       userId: SOPHIE,
@@ -7825,7 +7805,7 @@ init();
       goalAmount: 50,
       goalDate: '',
       category: 'Sports',
-      imageData: sophiePuzzleImg,
+      imageData: window.__PP_DEMO_SKATEBOARD_IMG__,
       history: [
         { amount: 10, date: now, note: 'Earned from chores' },
         { amount: 12, date: now, note: 'Earned from chores' },
@@ -7834,40 +7814,105 @@ init();
       ],
       createdAt: now,
     });
-    await dbPut({
-      id: 'goal_demo_jackson',
-      userId: JACKSON,
-      name: 'LEGO Set',
-      goalAmount: 25,
-      goalDate: '',
-      category: 'Toys',
-      imageData: jacksonPuzzleImg,
-      history: [
-        { amount: 5, date: now, note: 'Earned from chores' },
-        { amount: 4, date: now, note: 'Tooth fairy money' },
-        { amount: 3, date: now, note: 'Earned from chores' },
-      ],
-      createdAt: now,
-    });
   };
 
-  // ---------- Default goal image (simple colorful placeholder) ----------
-  // 1x1 transparent fallback — the app shows a category emoji if image is empty
-  window.__PP_DEMO_DEFAULT_IMG__ = '';
+  // ===========================================================
+  //  BroadcastChannel sync — keep both iframes in sync so when
+  //  the parent approves a chore, Sophie's view refreshes (and
+  //  vice versa). Same-origin iframes pick up these messages.
+  // ===========================================================
+  var BC_NAME = 'puzzle-pig-demo-sync';
+  var bc = null;
+  try { bc = new BroadcastChannel(BC_NAME); } catch(_){}
+
+  function broadcast(kind){
+    try { if (bc) bc.postMessage({ kind: kind, ts: Date.now(), from: ROLE || 'unknown' }); } catch(_){}
+  }
+
+  // Wrap the small set of write functions whose effects need to cross frames.
+  function wrapDbFn(name){
+    var orig = window[name];
+    if (typeof orig !== 'function') return;
+    window[name] = async function(){
+      var r = await orig.apply(this, arguments);
+      try { broadcast(name); } catch(_){}
+      return r;
+    };
+  }
+  function installSyncWraps(){
+    ['dbPutChoreLog','dbDeleteChoreLog','dbPutJar','dbPutJarTx','dbPut','dbDelete','dbPutUser']
+      .forEach(wrapDbFn);
+  }
+  // Wait for db functions to be defined
+  function waitForDb(cb){
+    if (typeof window.dbPutChoreLog === 'function' && typeof window.dbPutJar === 'function') return cb();
+    setTimeout(function(){ waitForDb(cb); }, 50);
+  }
+  waitForDb(installSyncWraps);
+
+  // ---------- Cross-frame refresh handler ----------
+  // When the OTHER iframe writes something, re-read from IndexedDB and re-render.
+  var refreshScheduled = false;
+  async function refreshFromOtherFrame(){
+    if (refreshScheduled) return;
+    refreshScheduled = true;
+    setTimeout(async function(){
+      refreshScheduled = false;
+      try {
+        // Reload core arrays from DB
+        if (typeof loadGoals === 'function')      goals      = (await dbGetAll()).filter(g => !window.currentUserId || g.userId === window.currentUserId);
+        var allChores  = (typeof dbGetAllChores  === 'function') ? await dbGetAllChores()  : [];
+        var allLogs    = (typeof dbGetAllChoreLogs === 'function') ? await dbGetAllChoreLogs() : [];
+        var allJars    = (typeof dbGetAllJars    === 'function') ? await dbGetAllJars()    : [];
+        var allJarTxs  = (typeof dbGetAllJarTxs  === 'function') ? await dbGetAllJarTxs()  : [];
+
+        if (ROLE === 'sophie' && window.currentUserId) {
+          chores    = allChores.filter(function(c){ var a=c.assignedTo||[]; return a.indexOf(window.currentUserId)>=0; });
+          choreLogs = allLogs.filter(function(l){ return l.userId === window.currentUserId; });
+          jars      = allJars.filter(function(j){ return j.userId === window.currentUserId; }).sort(function(a,b){return a.order-b.order;});
+          jarTxs    = allJarTxs.filter(function(t){ return t.userId === window.currentUserId; });
+          var allGoals = await dbGetAll();
+          goals = allGoals.filter(function(g){ return g.userId === window.currentUserId; });
+          if (typeof renderHome === 'function') renderHome();
+        } else if (ROLE === 'parent') {
+          // Parent dashboard reads everything; just re-render
+          window.chores = allChores;
+          window.choreLogs = allLogs;
+          window.jars = allJars;
+          window.jarTxs = allJarTxs;
+          window.goals = await dbGetAll();
+          if (typeof renderParentSettings === 'function') renderParentSettings();
+        }
+      } catch(e){ console.warn('[DEMO] sync refresh failed', e); }
+    }, 120);
+  }
+  try {
+    if (bc) {
+      bc.onmessage = function(ev){
+        if (!ev || !ev.data) return;
+        // Ignore our own messages
+        if (ev.data.from === (ROLE || 'unknown')) return;
+        refreshFromOtherFrame();
+      };
+    }
+  } catch(_){}
 
   // ===========================================================
-  //  DEMO MODE — use the REAL sign-in page (#userSelectScreen)
-  //  as the role switcher. Sophie / Jackson / Parent cards on
-  //  that screen do the work; no dark demo bar is mounted.
+  //  Suppress kid encouragement banners on the parent view —
+  //  the parent should never see "You're doing great!" toasts
+  //  when approving a chore.
   // ===========================================================
+  if (ROLE === 'parent') {
+    try {
+      var style = document.createElement('style');
+      style.textContent = '.encouragement-toast{display:none !important;}';
+      document.head.appendChild(style);
+    } catch(_){}
+  }
 
   // ---------- Skip Parent PIN in demo ----------
-  // Note: the app uses `let parentUnlocked = false` at module scope, which we
-  // cannot reach from out here. Instead we wrap requestPinFor() so demo skips
-  // the PIN modal entirely for the parent-side actions a buyer can trigger.
   function __demoInstallPinBypass(){
     if (typeof window.requestPinFor !== 'function') {
-      // requestPinFor isn't defined yet; try again shortly.
       setTimeout(__demoInstallPinBypass, 50);
       return;
     }
@@ -7875,7 +7920,6 @@ init();
     window.__demoPinBypassed = true;
     var orig = window.requestPinFor;
     window.requestPinFor = async function(action, extra){
-      // Actions that should run immediately without any PIN prompt in demo.
       var bypass = {
         'add': function(){ if (typeof showAddUserForm === 'function') showAddUserForm(); },
         'manage': function(){ window.managingUsers = true; if (typeof renderUserSelect === 'function') renderUserSelect(); },
@@ -7898,8 +7942,6 @@ init();
         'jar-add-money': function(){ if (typeof jarAddMoney === 'function') return jarAddMoney(extra); },
         'jar-withdraw': function(){ if (typeof jarWithdraw === 'function') return jarWithdraw(extra); }
       };
-      // Don't bypass setup / setup-confirm — those run when there's no PIN saved,
-      // which shouldn't happen in demo (seed installs one). Fall through to original.
       if (action && bypass[action]) {
         try { return await bypass[action](); } catch(e){ console.warn('[DEMO] PIN bypass action failed', action, e); }
         return;
@@ -7910,82 +7952,43 @@ init();
   }
   __demoInstallPinBypass();
 
-  // ---------- 'Back to sign-in' link ----------
-  // Add a small link to both the kid current-user bar and the top of the
-  // parent dashboard so the buyer can switch between Sophie / Jackson / Parent
-  // without having to reload the page.
-  window.__demoBackToSignIn = function(){
-    try {
-      // Clear role + selected kid so the sign-in page renders cleanly.
-      localStorage.removeItem('pp_role');
-      localStorage.removeItem('pp_kid_user_id');
-      document.body.classList.remove('pp-parent-mode', 'pp-kid-mode');
-      window.parentUnlocked = true; // keep PIN bypass on for the next round
-      // Close any open modal/overlay so it doesn't bleed through.
-      try {
-        document.querySelectorAll('.pp32-modal-overlay, .modal-overlay').forEach(function(m){
-          if (m && m.style) m.style.display = 'none';
-        });
-        var pinOv = document.getElementById('pinOverlay');
-        if (pinOv) pinOv.classList.remove('active');
-      } catch(_){}
-      var app = document.getElementById('app');
-      var userSel = document.getElementById('userSelectScreen');
-      var bar = document.getElementById('currentUserBar');
-      if (app)     app.style.display     = 'none';
-      if (bar)     bar.style.display     = 'none';
-      if (userSel) userSel.style.display = '';
-      if (typeof renderUserSelect === 'function') renderUserSelect();
-    } catch(e){ console.warn('[DEMO] back-to-signin failed', e); location.reload(); }
-  };
-
-  // Inject a 'Switch user' link into the kid current-user bar.
-  // Re-runs on every DOM mutation so it survives renderHome() etc.
-  function __demoInjectSwitchLinks(){
-    // Kid view: append a link inside #currentUserBar.
-    var cub = document.getElementById('currentUserBar');
-    if (cub && !cub.querySelector('.demo-switch-link')) {
-      var a = document.createElement('a');
-      a.href = '#';
-      a.className = 'demo-switch-link';
-      a.textContent = '← Switch user (demo)';
-      a.style.cssText = 'display:inline-block;margin-left:auto;color:#6A4C96;font-size:0.85rem;text-decoration:underline;cursor:pointer;padding:4px 8px;';
-      a.addEventListener('click', function(e){ e.preventDefault(); window.__demoBackToSignIn(); });
-      cub.appendChild(a);
+  // ===========================================================
+  //  Auto-route to the right view based on ?role=
+  //  Sophie -> selectUser(SOPHIE); Parent -> parentSettingsView.
+  // ===========================================================
+  async function __demoAutoRoute(){
+    if (!ROLE) return;  // No role param -> use sign-in page
+    // Wait until users/jars are loaded and the right functions exist
+    if (typeof window.users === 'undefined' || !window.users || !window.users.length) {
+      setTimeout(__demoAutoRoute, 60);
+      return;
     }
-    // Parent view: prepend a banner inside #parentSettingsView.
-    var psv = document.getElementById('parentSettingsView');
-    if (psv && psv.classList.contains('active') && !psv.querySelector('.demo-parent-banner')) {
-      var banner = document.createElement('div');
-      banner.className = 'demo-parent-banner';
-      banner.style.cssText = 'background:#F0ECF7;border:1px solid #CBBFE5;border-radius:10px;padding:10px 14px;margin:10px 12px 0;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:0.9rem;color:#4A3570;';
-      banner.innerHTML = '<span><b>Demo mode</b> · you are viewing the <b>Parent</b> dashboard</span>'
-        + '<a href="#" class="demo-back-link" style="color:#6A4C96;text-decoration:underline;font-weight:600;white-space:nowrap;">← Back to sign-in</a>';
-      banner.querySelector('.demo-back-link').addEventListener('click', function(e){ e.preventDefault(); window.__demoBackToSignIn(); });
-      psv.insertBefore(banner, psv.firstChild);
-    }
-  }
-
-  // Run the injector whenever views change. A simple MutationObserver on
-  // document.body keeps it cheap and reliable.
-  function __demoStartInjector(){
     try {
-      __demoInjectSwitchLinks();
-      var mo = new MutationObserver(function(){ __demoInjectSwitchLinks(); });
-      mo.observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class','style'] });
-    } catch(e){ console.warn('[DEMO] injector failed', e); }
+      if (ROLE === 'sophie' && typeof selectUser === 'function') {
+        window.parentUnlocked = true;  // skip PIN
+        await selectUser(window.__PP_DEMO_SOPHIE_ID__);
+      } else if (ROLE === 'parent') {
+        window.parentUnlocked = true;
+        var us = document.getElementById('userSelectScreen');
+        var app = document.getElementById('app');
+        if (us)  us.style.display = 'none';
+        if (app) app.style.display = '';
+        document.body.classList.add('pp-parent-mode');
+        if (typeof showView === 'function') showView('parentSettingsView');
+        if (typeof renderParentSettings === 'function') renderParentSettings();
+      }
+    } catch(e){ console.warn('[DEMO] auto-route failed', e); }
   }
+  // Kick off after init() has had a chance to populate users
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', __demoStartInjector);
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(__demoAutoRoute, 400); });
   } else {
-    __demoStartInjector();
+    setTimeout(__demoAutoRoute, 400);
   }
 
-  // ---------- Legacy stub ----------
-  // Keep __demoSwitchRole defined as a no-op redirect in case any old code
-  // path or external link still references it. Routing through the sign-in
-  // page handles all three roles now.
-  window.__demoSwitchRole = function(){ window.__demoBackToSignIn(); };
+  // ---------- Legacy stubs (no-ops in side-by-side mode) ----------
+  window.__demoBackToSignIn = function(){ /* no-op: each iframe is locked to its role */ };
+  window.__demoSwitchRole   = function(){ /* no-op */ };
 })();
 </script>
 <!-- ===== END DEMO RUNTIME ===== -->
