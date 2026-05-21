@@ -7817,85 +7817,76 @@ init();
   };
 
   // ===========================================================
-  //  BroadcastChannel sync — keep both iframes in sync so when
-  //  the parent approves a chore, Sophie's view refreshes (and
-  //  vice versa). Same-origin iframes pick up these messages.
+  //  Cross-iframe sync — polled approach.
+  //  Each iframe polls the shared IndexedDB every 1.2s, computes
+  //  a fingerprint of the chore-log + jar state, and re-renders
+  //  when it changes. Simpler and more robust than wrapping the
+  //  db write functions (which are top-level `function` decls
+  //  bound in script scope, not via `window`).
   // ===========================================================
-  var BC_NAME = 'puzzle-pig-demo-sync';
-  var bc = null;
-  try { bc = new BroadcastChannel(BC_NAME); } catch(_){}
-
-  function broadcast(kind){
-    try { if (bc) bc.postMessage({ kind: kind, ts: Date.now(), from: ROLE || 'unknown' }); } catch(_){}
+  var lastFingerprint = '';
+  function fingerprint(logs, jars, goals){
+    var p1 = (logs||[]).map(function(l){ return l.id+':'+l.status+':'+l.date; }).sort().join('|');
+    var p2 = (jars||[]).map(function(j){ return j.id+':'+j.balance; }).sort().join('|');
+    var p3 = (goals||[]).map(function(g){
+      var hist = (g.history||[]).reduce(function(s,h){ return s + (Number(h.amount)||0); }, 0);
+      return g.id+':'+hist;
+    }).sort().join('|');
+    return p1 + '##' + p2 + '##' + p3;
   }
 
-  // Wrap the small set of write functions whose effects need to cross frames.
-  function wrapDbFn(name){
-    var orig = window[name];
-    if (typeof orig !== 'function') return;
-    window[name] = async function(){
-      var r = await orig.apply(this, arguments);
-      try { broadcast(name); } catch(_){}
-      return r;
-    };
-  }
-  function installSyncWraps(){
-    ['dbPutChoreLog','dbDeleteChoreLog','dbPutJar','dbPutJarTx','dbPut','dbDelete','dbPutUser']
-      .forEach(wrapDbFn);
-  }
-  // Wait for db functions to be defined
-  function waitForDb(cb){
-    if (typeof window.dbPutChoreLog === 'function' && typeof window.dbPutJar === 'function') return cb();
-    setTimeout(function(){ waitForDb(cb); }, 50);
-  }
-  waitForDb(installSyncWraps);
+  async function syncPoll(){
+    try {
+      if (typeof dbGetAllChoreLogs !== 'function') return;
+      var allLogs   = await dbGetAllChoreLogs();
+      var allJars   = await dbGetAllJars();
+      var allGoals  = await dbGetAll();
+      var fp = fingerprint(allLogs, allJars, allGoals);
+      if (fp === lastFingerprint) return;
+      var firstRun = !lastFingerprint;
+      lastFingerprint = fp;
+      if (firstRun) return;  // Don't re-render on initial poll — init() already did that
 
-  // ---------- Cross-frame refresh handler ----------
-  // When the OTHER iframe writes something, re-read from IndexedDB and re-render.
-  var refreshScheduled = false;
-  async function refreshFromOtherFrame(){
-    if (refreshScheduled) return;
-    refreshScheduled = true;
-    setTimeout(async function(){
-      refreshScheduled = false;
-      try {
-        // Reload core arrays from DB
-        if (typeof loadGoals === 'function')      goals      = (await dbGetAll()).filter(g => !window.currentUserId || g.userId === window.currentUserId);
-        var allChores  = (typeof dbGetAllChores  === 'function') ? await dbGetAllChores()  : [];
-        var allLogs    = (typeof dbGetAllChoreLogs === 'function') ? await dbGetAllChoreLogs() : [];
-        var allJars    = (typeof dbGetAllJars    === 'function') ? await dbGetAllJars()    : [];
-        var allJarTxs  = (typeof dbGetAllJarTxs  === 'function') ? await dbGetAllJarTxs()  : [];
+      var allChores  = await dbGetAllChores();
+      var allJarTxs  = await dbGetAllJarTxs();
 
-        if (ROLE === 'sophie' && window.currentUserId) {
-          chores    = allChores.filter(function(c){ var a=c.assignedTo||[]; return a.indexOf(window.currentUserId)>=0; });
-          choreLogs = allLogs.filter(function(l){ return l.userId === window.currentUserId; });
-          jars      = allJars.filter(function(j){ return j.userId === window.currentUserId; }).sort(function(a,b){return a.order-b.order;});
-          jarTxs    = allJarTxs.filter(function(t){ return t.userId === window.currentUserId; });
-          var allGoals = await dbGetAll();
-          goals = allGoals.filter(function(g){ return g.userId === window.currentUserId; });
-          if (typeof renderHome === 'function') renderHome();
-        } else if (ROLE === 'parent') {
-          // Parent dashboard reads everything; just re-render
-          window.chores = allChores;
-          window.choreLogs = allLogs;
-          window.jars = allJars;
-          window.jarTxs = allJarTxs;
-          window.goals = await dbGetAll();
-          if (typeof renderParentSettings === 'function') renderParentSettings();
+      if (ROLE === 'sophie' && window.currentUserId) {
+        chores    = allChores.filter(function(c){ var a=c.assignedTo||[]; return a.indexOf(window.currentUserId)>=0; });
+        choreLogs = allLogs.filter(function(l){ return l.userId === window.currentUserId; });
+        jars      = allJars.filter(function(j){ return j.userId === window.currentUserId; }).sort(function(a,b){return a.order-b.order;});
+        jarTxs    = allJarTxs.filter(function(t){ return t.userId === window.currentUserId; });
+        goals     = allGoals.filter(function(g){ return g.userId === window.currentUserId; });
+        var hv = document.getElementById('homeView');
+        if (hv && hv.classList.contains('active') && typeof renderHome === 'function') renderHome();
+        var cv = document.getElementById('choresView');
+        if (cv && cv.classList.contains('active') && typeof renderChoresView === 'function') renderChoresView();
+        var jv = document.getElementById('jarsView');
+        if (jv && jv.classList.contains('active') && typeof renderJarsView === 'function') renderJarsView();
+        var pv = document.getElementById('puzzleView');
+        if (pv && pv.classList.contains('active') && typeof renderPuzzle === 'function') renderPuzzle();
+      } else if (ROLE === 'parent') {
+        window.chores    = allChores;
+        window.choreLogs = allLogs;
+        window.jars      = allJars;
+        window.jarTxs    = allJarTxs;
+        window.goals     = allGoals;
+        if (typeof renderParentSettings === 'function') {
+          try { await renderParentSettings(); } catch(e){ console.warn('[DEMO] sync renderParentSettings failed', e); }
         }
-      } catch(e){ console.warn('[DEMO] sync refresh failed', e); }
-    }, 120);
+      }
+    } catch(e){ /* silent */ }
   }
-  try {
-    if (bc) {
-      bc.onmessage = function(ev){
-        if (!ev || !ev.data) return;
-        // Ignore our own messages
-        if (ev.data.from === (ROLE || 'unknown')) return;
-        refreshFromOtherFrame();
-      };
+  // Start polling once the DB functions are available
+  function startPolling(){
+    if (typeof dbGetAllChoreLogs !== 'function') {
+      setTimeout(startPolling, 100);
+      return;
     }
-  } catch(_){}
+    // Initial fingerprint (no render)
+    syncPoll();
+    setInterval(syncPoll, 1200);
+  }
+  startPolling();
 
   // ===========================================================
   //  Suppress kid encouragement banners on the parent view —
