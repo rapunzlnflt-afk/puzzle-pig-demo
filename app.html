@@ -34,16 +34,28 @@
   } catch(_){}
 
   // Wipe IndexedDB before the app's openDB() runs.
-  // We do this synchronously-ish via a promise the app code can await,
-  // but since openDB() doesn't await us, we have to nuke before anything else.
-  // Strategy: delete the DB, set a sentinel to indicate seed-needed.
+  // CRITICAL: init() must wait for this to finish, otherwise it races the
+  // delete and ends up with a half-empty DB — which renders as a sign-in
+  // page with no Sophie/Jackson/Parent cards (just the pig icon + 'Who's
+  // signing in?').  We expose a Promise that init() awaits.
   window.__PP_DEMO_NEEDS_SEED__ = true;
-  try {
-    var delReq = indexedDB.deleteDatabase('PuzzlePigDB');
-    delReq.onsuccess = function(){ console.log('[DEMO] PuzzlePigDB wiped'); };
-    delReq.onerror   = function(){ console.warn('[DEMO] PuzzlePigDB wipe failed'); };
-    delReq.onblocked = function(){ console.warn('[DEMO] PuzzlePigDB wipe blocked'); };
-  } catch(e) { console.warn('[DEMO] wipe threw', e); }
+  window.__PP_DEMO_WIPE_DONE__ = new Promise(function(resolve){
+    try {
+      var delReq = indexedDB.deleteDatabase('PuzzlePigDB');
+      var finish = function(label){ console.log('[DEMO] PuzzlePigDB wipe —', label); resolve(); };
+      delReq.onsuccess = function(){ finish('success'); };
+      delReq.onerror   = function(){ finish('error — continuing anyway'); };
+      delReq.onblocked = function(){
+        console.warn('[DEMO] PuzzlePigDB wipe blocked — another tab has the DB open. Close other Puzzle Pig tabs and reload.');
+        // Resolve after a short delay so init() doesn't hang forever; the
+        // app will still try to seed into whatever DB exists.
+        setTimeout(function(){ finish('blocked timeout'); }, 1500);
+      };
+    } catch(e) {
+      console.warn('[DEMO] wipe threw', e);
+      resolve();
+    }
+  });
 })();
 </script>
 <!-- ===== END DEMO BOOTSTRAP ===== -->
@@ -2971,6 +2983,13 @@ async function doRemoveUser(id) {
 
 // ---- Init ----
 async function init() {
+  // ===== DEMO MODE: wait for the bootstrap wipe to finish BEFORE openDB(),
+  // otherwise we race the delete and end up with an inconsistent DB. =====
+  if (window.__PP_DEMO__ && window.__PP_DEMO_WIPE_DONE__) {
+    try { await window.__PP_DEMO_WIPE_DONE__; }
+    catch(e) { console.warn('[DEMO] wipe-wait failed', e); }
+  }
+
   // ===== REAL MODE: persistent data, no demo wipe, no demo seed =====
   await openDB();
 
