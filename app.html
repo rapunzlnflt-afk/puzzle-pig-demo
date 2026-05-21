@@ -7865,13 +7865,26 @@ init();
         var pv = document.getElementById('puzzleView');
         if (pv && pv.classList.contains('active') && typeof renderPuzzle === 'function') renderPuzzle();
       } else if (ROLE === 'parent') {
+        // Skip parent re-renders until the initial route has finished.
+        if (!window.__demoParentRouted) return;
         window.chores    = allChores;
         window.choreLogs = allLogs;
         window.jars      = allJars;
         window.jarTxs    = allJarTxs;
         window.goals     = allGoals;
         if (typeof renderParentSettings === 'function') {
-          try { await renderParentSettings(); } catch(e){ console.warn('[DEMO] sync renderParentSettings failed', e); }
+          try {
+            await renderParentSettings();
+            // Re-assert that parentSettingsView is the active view (renderParentSettings
+            // replaces innerHTML which can interact badly with view-switching CSS).
+            var ps = document.getElementById('parentSettingsView');
+            if (ps && !ps.classList.contains('active')) ps.classList.add('active');
+            document.querySelectorAll('.view').forEach(function(v){
+              if (v.id !== 'parentSettingsView') v.classList.remove('active');
+            });
+            var appEl = document.getElementById('app');
+            if (appEl) appEl.style.display = '';
+          } catch(e){ console.warn('[DEMO] sync renderParentSettings failed', e); }
         }
       }
     } catch(e){ /* silent */ }
@@ -8018,11 +8031,12 @@ init();
     }
     if (ROLE === 'sophie') {
       await __demoRouteSophie();
+      window.__demoParentRouted = false;  // not applicable, but keep gate honest
     } else if (ROLE === 'parent') {
       __demoRouteParent();
       // Re-route twice more to defeat any late showView calls from init()
       setTimeout(__demoRouteParent, 250);
-      setTimeout(__demoRouteParent, 900);
+      setTimeout(function(){ __demoRouteParent(); window.__demoParentRouted = true; }, 900);
     }
   }
   if (document.readyState === 'loading') {
