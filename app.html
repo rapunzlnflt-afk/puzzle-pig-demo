@@ -28,7 +28,9 @@
   try {
     localStorage.setItem('pp_family_id', window.__PP_DEMO_FAMILY_ID__);
     localStorage.setItem('pp_family_code', window.__PP_DEMO_FAMILY_CODE__);
-    localStorage.setItem('pp_role', 'parent');
+    // NOTE: deliberately NOT seeding pp_role here — we want the buyer to
+    // see the real sign-in page (Sophie / Jackson / Parent cards) and pick
+    // a role themselves. Setting pp_role hides #userSelectScreen via CSS.
   } catch(_){}
 
   // Wipe IndexedDB before the app's openDB() runs.
@@ -7820,136 +7822,96 @@ init();
   // 1x1 transparent fallback — the app shows a category emoji if image is empty
   window.__PP_DEMO_DEFAULT_IMG__ = '';
 
-  // ---------- Role switcher ----------
-  window.__demoSwitchRole = async function(target /* 'parent' | 'sophie' | 'jackson' */){
-    var SOPHIE = window.__PP_DEMO_SOPHIE_ID__;
-    var JACKSON = window.__PP_DEMO_JACKSON_ID__;
-    document.body.classList.remove('pp-parent-mode', 'pp-kid-mode');
-    var app = document.getElementById('app');
-    var userSel = document.getElementById('userSelectScreen');
-    var famSetup = document.getElementById('familySetupScreen');
-    var kidPick  = document.getElementById('kidPickScreen');
+  // ===========================================================
+  //  DEMO MODE — use the REAL sign-in page (#userSelectScreen)
+  //  as the role switcher. Sophie / Jackson / Parent cards on
+  //  that screen do the work; no dark demo bar is mounted.
+  // ===========================================================
 
-    // Hide setup screens (they should never appear in demo)
-    if (famSetup) famSetup.style.display = 'none';
-    if (kidPick)  kidPick.style.display  = 'none';
+  // ---------- Skip Parent PIN in demo ----------
+  // The Parent card on the sign-in page calls requestPinFor('open-parent-settings').
+  // requestPinFor() already short-circuits when window.parentUnlocked === true,
+  // so by flipping that flag on at boot the PIN modal never appears in the demo.
+  // We still keep the PIN visible (1234) on the landing page in case a buyer
+  // tries to lock/unlock things during their session.
+  try { window.parentUnlocked = true; } catch(_){}
 
-    // Close any open modal first (e.g. the kid-card modal in parent view)
+  // ---------- 'Back to sign-in' link ----------
+  // Add a small link to both the kid current-user bar and the top of the
+  // parent dashboard so the buyer can switch between Sophie / Jackson / Parent
+  // without having to reload the page.
+  window.__demoBackToSignIn = function(){
     try {
-      var openModals = document.querySelectorAll('.pp32-modal-overlay, .modal-overlay, [class*="modal"][style*="display: flex"]');
-      openModals.forEach(function(m){
-        // Look for a close button or just hide it
-        var closeBtn = m.querySelector('.pp32-modal-close, .modal-close, [aria-label="Close"], [onclick*="close"]');
-        if (closeBtn) closeBtn.click();
-        else m.style.display = 'none';
-      });
-    } catch(_){}
-
-    if (target === 'parent') {
-      document.body.classList.add('pp-parent-mode');
-      localStorage.setItem('pp_role', 'parent');
-      try { window.parentUnlocked = true; } catch(_){}
-      // Parent dashboard is parentSettingsView inside #app, NOT userSelectScreen
-      if (userSel) userSel.style.display = 'none';
-      if (app)     app.style.display = '';
-      if (typeof showView === 'function') showView('parentSettingsView');
-      if (typeof renderParentSettings === 'function') renderParentSettings();
-    } else {
-      // Kid view
-      document.body.classList.add('pp-kid-mode');
-      localStorage.setItem('pp_role', 'child');
-      var kidId = (target === 'sophie') ? SOPHIE : JACKSON;
-      localStorage.setItem('pp_kid_user_id', kidId);
-      if (userSel) userSel.style.display = 'none';
-      if (app)     app.style.display = '';
-      if (typeof selectUser === 'function') await selectUser(kidId);
-      if (typeof showView === 'function')   showView('homeView');
-    }
-    __demoUpdateBarActive(target);
+      // Clear role + selected kid so the sign-in page renders cleanly.
+      localStorage.removeItem('pp_role');
+      localStorage.removeItem('pp_kid_user_id');
+      document.body.classList.remove('pp-parent-mode', 'pp-kid-mode');
+      window.parentUnlocked = true; // keep PIN bypass on for the next round
+      // Close any open modal/overlay so it doesn't bleed through.
+      try {
+        document.querySelectorAll('.pp32-modal-overlay, .modal-overlay').forEach(function(m){
+          if (m && m.style) m.style.display = 'none';
+        });
+        var pinOv = document.getElementById('pinOverlay');
+        if (pinOv) pinOv.classList.remove('active');
+      } catch(_){}
+      var app = document.getElementById('app');
+      var userSel = document.getElementById('userSelectScreen');
+      var bar = document.getElementById('currentUserBar');
+      if (app)     app.style.display     = 'none';
+      if (bar)     bar.style.display     = 'none';
+      if (userSel) userSel.style.display = '';
+      if (typeof renderUserSelect === 'function') renderUserSelect();
+    } catch(e){ console.warn('[DEMO] back-to-signin failed', e); location.reload(); }
   };
 
-  // ---------- Demo bar UI ----------
-  function __demoBuildBar(){
-    if (document.getElementById('demoBar')) return;
-    var bar = document.createElement('div');
-    bar.id = 'demoBar';
-    bar.innerHTML = ''
-      + '<div class="demo-bar-inner">'
-      + '  <span class="demo-label">DEMO &middot; parent PIN: <b>1234</b></span>'
-      + '  <div class="demo-roles">'
-      + '    <button class="demo-role-btn" data-role="parent">Parent</button>'
-      + '    <button class="demo-role-btn" data-role="sophie">Sophie</button>'
-      + '    <button class="demo-role-btn" data-role="jackson">Jackson</button>'
-      + '  </div>'
-      + '  <button class="demo-reset" title="Reset demo">&#x21bb; Reset</button>'
-      + '</div>';
-    document.body.appendChild(bar);
-
-    bar.querySelectorAll('.demo-role-btn').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        window.__demoSwitchRole(btn.getAttribute('data-role'));
-      });
-    });
-    bar.querySelector('.demo-reset').addEventListener('click', function(){
-      location.reload();
-    });
-  }
-  window.__demoUpdateBarActive = function(target){
-    document.querySelectorAll('#demoBar .demo-role-btn').forEach(function(btn){
-      btn.classList.toggle('active', btn.getAttribute('data-role') === target);
-    });
-  };
-
-  // Inject styles for the demo bar
-  var style = document.createElement('style');
-  style.textContent = ''
-    + '#demoBar { position:fixed; top:0; left:0; right:0; z-index:99999;'
-    + '  background:linear-gradient(135deg,#1F2937,#374151); color:#fff;'
-    + '  font-family:system-ui,-apple-system,sans-serif; font-size:13px;'
-    + '  box-shadow:0 2px 8px rgba(0,0,0,0.25); }'
-    + '#demoBar .demo-bar-inner { display:flex; align-items:center; justify-content:space-between;'
-    + '  gap:10px; padding:8px 12px; max-width:1100px; margin:0 auto; flex-wrap:wrap; }'
-    + '#demoBar .demo-label { font-weight:600; opacity:0.92; }'
-    + '#demoBar .demo-label b { color:#FCD34D; letter-spacing:1px; }'
-    + '#demoBar .demo-roles { display:flex; gap:6px; }'
-    + '#demoBar .demo-role-btn { background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2);'
-    + '  padding:6px 14px; border-radius:999px; cursor:pointer; font-size:13px; font-weight:600;'
-    + '  transition:all 0.15s; }'
-    + '#demoBar .demo-role-btn:hover { background:rgba(255,255,255,0.18); }'
-    + '#demoBar .demo-role-btn.active { background:#A78BFA; border-color:#A78BFA; color:#1F2937; }'
-    + '#demoBar .demo-reset { background:transparent; color:#fff; border:1px solid rgba(255,255,255,0.25);'
-    + '  padding:6px 12px; border-radius:999px; cursor:pointer; font-size:12px; opacity:0.85; }'
-    + '#demoBar .demo-reset:hover { opacity:1; background:rgba(255,255,255,0.1); }'
-    + 'body { padding-top:52px !important; }'
-    + '@media (max-width:480px) { #demoBar .demo-bar-inner { gap:6px; padding:6px 8px; }'
-    + '  #demoBar .demo-label { font-size:11px; flex-basis:100%; text-align:center; order:1; }'
-    + '  #demoBar .demo-roles { order:2; }'
-    + '  #demoBar .demo-reset { order:3; }'
-    + '  #demoBar .demo-role-btn { padding:5px 10px; font-size:12px; }'
-    + '  body { padding-top:84px !important; } }';
-  document.head.appendChild(style);
-
-  // Mount the bar once DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', __demoBuildBar);
-  } else {
-    __demoBuildBar();
-  }
-
-  // After init() finishes, force the parent landing (in case CSS race-conditions
-  // briefly flash other screens).
-  function __landParent(){
-    if (typeof renderParentSettings === 'function' && typeof users !== 'undefined' && users && users.length >= 2) {
-      window.__demoSwitchRole('parent');
-    } else {
-      setTimeout(__landParent, 100);
+  // Inject a 'Switch user' link into the kid current-user bar.
+  // Re-runs on every DOM mutation so it survives renderHome() etc.
+  function __demoInjectSwitchLinks(){
+    // Kid view: append a link inside #currentUserBar.
+    var cub = document.getElementById('currentUserBar');
+    if (cub && !cub.querySelector('.demo-switch-link')) {
+      var a = document.createElement('a');
+      a.href = '#';
+      a.className = 'demo-switch-link';
+      a.textContent = '← Switch user (demo)';
+      a.style.cssText = 'display:inline-block;margin-left:auto;color:#6A4C96;font-size:0.85rem;text-decoration:underline;cursor:pointer;padding:4px 8px;';
+      a.addEventListener('click', function(e){ e.preventDefault(); window.__demoBackToSignIn(); });
+      cub.appendChild(a);
+    }
+    // Parent view: prepend a banner inside #parentSettingsView.
+    var psv = document.getElementById('parentSettingsView');
+    if (psv && psv.classList.contains('active') && !psv.querySelector('.demo-parent-banner')) {
+      var banner = document.createElement('div');
+      banner.className = 'demo-parent-banner';
+      banner.style.cssText = 'background:#F0ECF7;border:1px solid #CBBFE5;border-radius:10px;padding:10px 14px;margin:10px 12px 0;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:0.9rem;color:#4A3570;';
+      banner.innerHTML = '<span><b>Demo mode</b> · you are viewing the <b>Parent</b> dashboard</span>'
+        + '<a href="#" class="demo-back-link" style="color:#6A4C96;text-decoration:underline;font-weight:600;white-space:nowrap;">← Back to sign-in</a>';
+      banner.querySelector('.demo-back-link').addEventListener('click', function(e){ e.preventDefault(); window.__demoBackToSignIn(); });
+      psv.insertBefore(banner, psv.firstChild);
     }
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){ setTimeout(__landParent, 300); });
-  } else {
-    setTimeout(__landParent, 300);
+
+  // Run the injector whenever views change. A simple MutationObserver on
+  // document.body keeps it cheap and reliable.
+  function __demoStartInjector(){
+    try {
+      __demoInjectSwitchLinks();
+      var mo = new MutationObserver(function(){ __demoInjectSwitchLinks(); });
+      mo.observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class','style'] });
+    } catch(e){ console.warn('[DEMO] injector failed', e); }
   }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', __demoStartInjector);
+  } else {
+    __demoStartInjector();
+  }
+
+  // ---------- Legacy stub ----------
+  // Keep __demoSwitchRole defined as a no-op redirect in case any old code
+  // path or external link still references it. Routing through the sign-in
+  // page handles all three roles now.
+  window.__demoSwitchRole = function(){ window.__demoBackToSignIn(); };
 })();
 </script>
 <!-- ===== END DEMO RUNTIME ===== -->
