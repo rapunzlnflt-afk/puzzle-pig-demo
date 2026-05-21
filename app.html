@@ -7825,12 +7825,12 @@ init();
     if (target === 'parent') {
       document.body.classList.add('pp-parent-mode');
       localStorage.setItem('pp_role', 'parent');
-      // Parent landing = userSelectScreen with parent unlocked
-      if (typeof parentUnlocked !== 'undefined') window.parentUnlocked = true;
       try { window.parentUnlocked = true; } catch(_){}
-      if (app)     app.style.display = 'none';
-      if (userSel) userSel.style.display = '';
-      if (typeof renderUserSelect === 'function') renderUserSelect();
+      // Parent dashboard is parentSettingsView inside #app, NOT userSelectScreen
+      if (userSel) userSel.style.display = 'none';
+      if (app)     app.style.display = '';
+      if (typeof showView === 'function') showView('parentSettingsView');
+      if (typeof renderParentSettings === 'function') renderParentSettings();
     } else {
       // Kid view
       document.body.classList.add('pp-kid-mode');
@@ -7916,16 +7916,16 @@ init();
   // After init() finishes, force the parent landing (in case CSS race-conditions
   // briefly flash other screens).
   function __landParent(){
-    if (typeof renderUserSelect === 'function' && typeof users !== 'undefined' && users && users.length > 0) {
-      __demoUpdateBarActive('parent');
+    if (typeof renderParentSettings === 'function' && typeof users !== 'undefined' && users && users.length >= 2) {
+      window.__demoSwitchRole('parent');
     } else {
       setTimeout(__landParent, 100);
     }
   }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){ setTimeout(__landParent, 200); });
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(__landParent, 300); });
   } else {
-    setTimeout(__landParent, 200);
+    setTimeout(__landParent, 300);
   }
 })();
 </script>
