@@ -33,27 +33,32 @@
     // a role themselves. Setting pp_role hides #userSelectScreen via CSS.
   } catch(_){}
 
-  // Wipe IndexedDB before the app's openDB() runs.
-  // CRITICAL: init() must wait for this to finish, otherwise it races the
-  // delete and ends up with a half-empty DB — which renders as a sign-in
-  // page with no Sophie/Jackson/Parent cards (just the pig icon + 'Who's
-  // signing in?').  We expose a Promise that init() awaits.
+  // The demo uses its own IndexedDB ('PuzzlePigDemoDB') so it never collides
+  // with the production app (which lives at the same github.io origin and
+  // uses 'PuzzlePigDB'). Because the names differ, no wipe is needed — we
+  // delete the demo DB just to guarantee a clean reseed on every load.
   window.__PP_DEMO_NEEDS_SEED__ = true;
   window.__PP_DEMO_WIPE_DONE__ = new Promise(function(resolve){
+    var resolved = false;
+    var done = function(label){
+      if (resolved) return;
+      resolved = true;
+      console.log('[DEMO] PuzzlePigDemoDB wipe —', label);
+      resolve();
+    };
+    // Hard safety net: never let init() hang waiting for IndexedDB.
+    setTimeout(function(){ done('safety timeout'); }, 3000);
     try {
-      var delReq = indexedDB.deleteDatabase('PuzzlePigDB');
-      var finish = function(label){ console.log('[DEMO] PuzzlePigDB wipe —', label); resolve(); };
-      delReq.onsuccess = function(){ finish('success'); };
-      delReq.onerror   = function(){ finish('error — continuing anyway'); };
+      var delReq = indexedDB.deleteDatabase('PuzzlePigDemoDB');
+      delReq.onsuccess = function(){ done('success'); };
+      delReq.onerror   = function(){ done('error — continuing anyway'); };
       delReq.onblocked = function(){
-        console.warn('[DEMO] PuzzlePigDB wipe blocked — another tab has the DB open. Close other Puzzle Pig tabs and reload.');
-        // Resolve after a short delay so init() doesn't hang forever; the
-        // app will still try to seed into whatever DB exists.
-        setTimeout(function(){ finish('blocked timeout'); }, 1500);
+        console.warn('[DEMO] PuzzlePigDemoDB wipe blocked; continuing in 800ms');
+        setTimeout(function(){ done('blocked timeout'); }, 800);
       };
     } catch(e) {
       console.warn('[DEMO] wipe threw', e);
-      resolve();
+      done('threw');
     }
   });
 })();
@@ -2431,7 +2436,7 @@ const DEFAULT_JARS = [
 // every write into both IndexedDB AND the _mem array so the sync layer keeps
 // working unchanged, and reloads still surface the data immediately while
 // IndexedDB hydrates.
-const DB_NAME = 'PuzzlePigDB';
+const DB_NAME = (typeof window !== 'undefined' && window.__PP_DEMO__) ? 'PuzzlePigDemoDB' : 'PuzzlePigDB';
 const DB_VERSION = 4;
 const STORE_NAME = 'goals';
 const USER_STORE = 'users';
