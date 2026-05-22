@@ -32,6 +32,19 @@
       if (k && (k.indexOf('pp_') === 0 || k.indexOf('sb-') === 0 || k === 'pp_supa_auth')) rmKeys.push(k);
     }
     rmKeys.forEach(function(k){ localStorage.removeItem(k); });
+    console.log('[DEMO] localStorage wiped, removed', rmKeys.length, 'pp_/sb_ keys');
+  } catch(e){ console.warn('[DEMO] localStorage wipe failed', e); }
+
+  // Also wipe sessionStorage of any pp_* / sb-* keys (defensive — some browsers
+  // share sessionStorage across same-origin iframes and stale entries from
+  // the production app could confuse the demo).
+  try {
+    var rmS = [];
+    for (var j = 0; j < sessionStorage.length; j++) {
+      var sk = sessionStorage.key(j);
+      if (sk && (sk.indexOf('pp_') === 0 || sk.indexOf('sb-') === 0)) rmS.push(sk);
+    }
+    rmS.forEach(function(k){ sessionStorage.removeItem(k); });
   } catch(_){}
 
   // Seed localStorage so the app boots straight into demo mode
@@ -50,33 +63,54 @@
     }
   } catch(_){}
 
-  // The demo uses its own IndexedDB ('PuzzlePigDemoDB') so it never collides
-  // with the production app (which lives at the same github.io origin and
-  // uses 'PuzzlePigDB'). Because the names differ, no wipe is needed — we
-  // delete the demo DB just to guarantee a clean reseed on every load.
+  // Wipe BOTH the demo DB and the production DB at the same github.io origin.
+  // The demo only reads/writes PuzzlePigDemoDB, but a leftover production DB +
+  // any half-completed prior demo session has been observed to confuse the
+  // app's startup on some machines (sign-in screen stays stuck). Wiping both
+  // costs ~0ms when they don't exist and guarantees a totally clean slate.
   window.__PP_DEMO_NEEDS_SEED__ = true;
   window.__PP_DEMO_WIPE_DONE__ = new Promise(function(resolve){
     var resolved = false;
     var done = function(label){
       if (resolved) return;
       resolved = true;
-      console.log('[DEMO] PuzzlePigDemoDB wipe —', label);
+      console.log('[DEMO] IndexedDB wipe done —', label);
       resolve();
     };
     // Hard safety net: never let init() hang waiting for IndexedDB.
-    setTimeout(function(){ done('safety timeout'); }, 3000);
-    try {
-      var delReq = indexedDB.deleteDatabase('PuzzlePigDemoDB');
-      delReq.onsuccess = function(){ done('success'); };
-      delReq.onerror   = function(){ done('error — continuing anyway'); };
-      delReq.onblocked = function(){
-        console.warn('[DEMO] PuzzlePigDemoDB wipe blocked; continuing in 800ms');
-        setTimeout(function(){ done('blocked timeout'); }, 800);
-      };
-    } catch(e) {
-      console.warn('[DEMO] wipe threw', e);
-      done('threw');
+    setTimeout(function(){ done('safety timeout'); }, 4000);
+
+    function wipeDB(name, cb){
+      try {
+        var req = indexedDB.deleteDatabase(name);
+        var finished = false;
+        var finish = function(why){
+          if (finished) return;
+          finished = true;
+          console.log('[DEMO] wipe', name, '—', why);
+          cb();
+        };
+        req.onsuccess = function(){ finish('success'); };
+        req.onerror   = function(){ finish('error — continuing'); };
+        req.onblocked = function(){
+          console.warn('[DEMO] wipe', name, 'blocked; continuing in 600ms');
+          setTimeout(function(){ finish('blocked timeout'); }, 600);
+        };
+        // Per-DB safety in case none of the events fire
+        setTimeout(function(){ finish('per-db timeout'); }, 1500);
+      } catch(e) {
+        console.warn('[DEMO] wipe', name, 'threw', e);
+        cb();
+      }
     }
+
+    var remaining = 2;
+    var oneDone = function(){
+      remaining--;
+      if (remaining <= 0) done('all DBs wiped');
+    };
+    wipeDB('PuzzlePigDemoDB', oneDone);
+    wipeDB('PuzzlePigDB',     oneDone);
   });
 })();
 </script>
