@@ -7836,17 +7836,13 @@ init();
   }
 
   // Demo helpers: read directly from IndexedDB (bypass per-iframe _mem* caches
-  // which never see writes made by the other iframe).
+  // which never see writes made by the other iframe). Uses the script-scope
+  // _idbGetAll helper which closes over the `db` IDBDatabase binding.
   function __demoIdbGetAll(storeName){
-    return new Promise(function(resolve){
-      try {
-        if (!window.db) return resolve([]);
-        var tx = window.db.transaction(storeName, 'readonly');
-        var req = tx.objectStore(storeName).getAll();
-        req.onsuccess = function(){ resolve(req.result || []); };
-        req.onerror = function(){ resolve([]); };
-      } catch(e){ resolve([]); }
-    });
+    try {
+      if (typeof _idbGetAll === 'function') return _idbGetAll(storeName);
+    } catch(e){}
+    return Promise.resolve([]);
   }
   async function syncPoll(){
     try {
