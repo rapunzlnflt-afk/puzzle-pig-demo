@@ -8032,11 +8032,34 @@ init();
     if (ROLE === 'sophie') {
       await __demoRouteSophie();
       window.__demoParentRouted = false;  // not applicable, but keep gate honest
+      // Re-assert sophie route in case init() rerenders splash late
+      setTimeout(__demoRouteSophie, 400);
+      setTimeout(__demoRouteSophie, 1200);
+      setTimeout(__demoRouteSophie, 2500);
     } else if (ROLE === 'parent') {
       __demoRouteParent();
-      // Re-route twice more to defeat any late showView calls from init()
-      setTimeout(__demoRouteParent, 250);
-      setTimeout(function(){ __demoRouteParent(); window.__demoParentRouted = true; }, 900);
+      // Aggressively re-route to defeat any late showView calls from init()
+      setTimeout(__demoRouteParent, 200);
+      setTimeout(__demoRouteParent, 500);
+      setTimeout(__demoRouteParent, 1000);
+      setTimeout(__demoRouteParent, 2000);
+      setTimeout(function(){ __demoRouteParent(); window.__demoParentRouted = true; }, 3500);
+    }
+    // Watchdog: if the splash screen ever becomes visible again, force re-route
+    if (!window.__demoWatchdogStarted) {
+      window.__demoWatchdogStarted = true;
+      setInterval(function(){
+        try {
+          var u = document.getElementById('userSelectScreen');
+          if (!u) return;
+          var visible = u.classList.contains('active') || getComputedStyle(u).display !== 'none';
+          if (visible) {
+            console.log('[DEMO] watchdog: splash visible, forcing re-route to', ROLE);
+            if (ROLE === 'sophie') __demoRouteSophie();
+            else if (ROLE === 'parent') __demoRouteParent();
+          }
+        } catch(e){}
+      }, 600);
     }
   }
   if (document.readyState === 'loading') {
