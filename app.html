@@ -8076,52 +8076,78 @@ init();
     } catch(e){ console.warn('[DEMO] parent route failed', e); }
   }
 
+  // Helper: are the functions we need actually defined yet?
+  function __demoRouteReady(){
+    return (typeof window.users !== 'undefined' && window.users && window.users.length > 0)
+        && (typeof showView === 'function')
+        && (ROLE !== 'sophie' || typeof selectUser === 'function')
+        && (ROLE !== 'parent' || typeof renderParentSettings === 'function');
+  }
+
+  // Helper: is any sign-in / user-select screen currently visible?
+  function __demoSignInVisible(){
+    try {
+      var ids = ['userSelectScreen','signInScreen','authScreen','splashScreen','roleSelectScreen'];
+      for (var i=0;i<ids.length;i++){
+        var el = document.getElementById(ids[i]);
+        if (!el) continue;
+        var visible = el.classList.contains('active') || getComputedStyle(el).display !== 'none';
+        if (visible) return true;
+      }
+    } catch(e){}
+    return false;
+  }
+
+  function __demoFireRoute(){
+    try {
+      if (ROLE === 'sophie') __demoRouteSophie();
+      else if (ROLE === 'parent') __demoRouteParent();
+    } catch(e){ console.warn('[DEMO] route attempt threw', e); }
+  }
+
   async function __demoAutoRoute(attempt){
     attempt = attempt || 0;
     if (!ROLE) return;
-    // Wait until users + key functions are ready
-    var ready = (typeof window.users !== 'undefined' && window.users && window.users.length > 0)
-             && (typeof showView === 'function')
-             && (ROLE !== 'sophie' || typeof selectUser === 'function')
-             && (ROLE !== 'parent' || typeof renderParentSettings === 'function');
-    if (!ready) {
-      if (attempt > 80) { console.warn('[DEMO] auto-route giving up — never became ready'); return; }
-      setTimeout(function(){ __demoAutoRoute(attempt + 1); }, 100);
+    if (!__demoRouteReady()) {
+      // Don't give up — keep polling forever (every 100ms for first 30s, then every 500ms).
+      // The watchdog (started below, independently) will also keep trying.
+      var delay = attempt > 300 ? 500 : 100;
+      setTimeout(function(){ __demoAutoRoute(attempt + 1); }, delay);
       return;
     }
     if (ROLE === 'sophie') {
       await __demoRouteSophie();
-      window.__demoParentRouted = false;  // not applicable, but keep gate honest
-      // Re-assert sophie route in case init() rerenders splash late
+      window.__demoParentRouted = false;
       setTimeout(__demoRouteSophie, 400);
       setTimeout(__demoRouteSophie, 1200);
       setTimeout(__demoRouteSophie, 2500);
     } else if (ROLE === 'parent') {
       __demoRouteParent();
-      // Aggressively re-route to defeat any late showView calls from init()
       setTimeout(__demoRouteParent, 200);
       setTimeout(__demoRouteParent, 500);
       setTimeout(__demoRouteParent, 1000);
       setTimeout(__demoRouteParent, 2000);
       setTimeout(function(){ __demoRouteParent(); window.__demoParentRouted = true; }, 3500);
     }
-    // Watchdog: if the splash screen ever becomes visible again, force re-route
-    if (!window.__demoWatchdogStarted) {
-      window.__demoWatchdogStarted = true;
-      setInterval(function(){
-        try {
-          var u = document.getElementById('userSelectScreen');
-          if (!u) return;
-          var visible = u.classList.contains('active') || getComputedStyle(u).display !== 'none';
-          if (visible) {
-            console.log('[DEMO] watchdog: splash visible, forcing re-route to', ROLE);
-            if (ROLE === 'sophie') __demoRouteSophie();
-            else if (ROLE === 'parent') __demoRouteParent();
-          }
-        } catch(e){}
-      }, 600);
-    }
   }
+
+  // Independent watchdog — starts IMMEDIATELY, regardless of whether the initial
+  // route ever fires. If the sign-in / splash screen is visible AND the route
+  // functions are ready, force the route. This is the safety net for slow
+  // machines where init() takes longer than the original 8-second retry budget.
+  if (ROLE && !window.__demoWatchdogStarted) {
+    window.__demoWatchdogStarted = true;
+    setInterval(function(){
+      try {
+        if (!__demoRouteReady()) return;
+        if (__demoSignInVisible()) {
+          console.log('[DEMO] watchdog: sign-in visible, forcing re-route to', ROLE);
+          __demoFireRoute();
+        }
+      } catch(e){}
+    }, 500);
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ __demoAutoRoute(0); }, 100); });
   } else {
