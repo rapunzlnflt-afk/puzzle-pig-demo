@@ -7714,7 +7714,7 @@ init();
 
     // Jars (Save / Spend / Give)
     var defaultJars = [
-      { type:'save',  name:'Save',  color:'#27AE60', balance: 34 },
+      { type:'save',  name:'Save',  color:'#27AE60', balance: 18 },
       { type:'spend', name:'Spend', color:'#2980B9', balance: 6  },
       { type:'give',  name:'Give',  color:'#E74C3C', balance: 3  },
     ];
@@ -7797,7 +7797,7 @@ init();
     });
 
     // Goal — partial progress so the puzzle reveal is visible
-    // Sophie: $34 of $50 skateboard goal (68% revealed)
+    // Sophie: $18 of $50 skateboard goal (36% revealed — most still hidden)
     await dbPut({
       id: 'goal_demo_sophie',
       userId: SOPHIE,
@@ -7807,10 +7807,9 @@ init();
       category: 'Sports',
       imageData: window.__PP_DEMO_SKATEBOARD_IMG__,
       history: [
-        { amount: 10, date: now, note: 'Earned from chores' },
-        { amount: 12, date: now, note: 'Earned from chores' },
+        { amount: 8,  date: now, note: 'Earned from chores' },
         { amount: 7,  date: now, note: 'Birthday gift from Grandma' },
-        { amount: 5,  date: now, note: 'Earned from chores' },
+        { amount: 3,  date: now, note: 'Earned from chores' },
       ],
       createdAt: now,
     });
