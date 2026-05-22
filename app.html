@@ -7835,20 +7835,44 @@ init();
     return p1 + '##' + p2 + '##' + p3;
   }
 
+  // Demo helpers: read directly from IndexedDB (bypass per-iframe _mem* caches
+  // which never see writes made by the other iframe).
+  function __demoIdbGetAll(storeName){
+    return new Promise(function(resolve){
+      try {
+        if (!window.db) return resolve([]);
+        var tx = window.db.transaction(storeName, 'readonly');
+        var req = tx.objectStore(storeName).getAll();
+        req.onsuccess = function(){ resolve(req.result || []); };
+        req.onerror = function(){ resolve([]); };
+      } catch(e){ resolve([]); }
+    });
+  }
   async function syncPoll(){
     try {
       if (typeof dbGetAllChoreLogs !== 'function') return;
-      var allLogs   = await dbGetAllChoreLogs();
-      var allJars   = await dbGetAllJars();
-      var allGoals  = await dbGetAll();
+      // Read directly from IDB so we see writes made by the OTHER iframe.
+      var allLogs   = await __demoIdbGetAll('choreLog');
+      var allJars   = await __demoIdbGetAll('jars');
+      var allGoals  = await __demoIdbGetAll('goals');
+      // Refresh in-memory caches so renderers (which read from _mem*) see fresh data
+      if (typeof _memChoreLogs !== 'undefined') {
+        _memChoreLogs.length = 0;
+        allLogs.forEach(function(l){ _memChoreLogs.push(l); });
+      }
       var fp = fingerprint(allLogs, allJars, allGoals);
       if (fp === lastFingerprint) return;
       var firstRun = !lastFingerprint;
       lastFingerprint = fp;
       if (firstRun) return;  // Don't re-render on initial poll — init() already did that
 
-      var allChores  = await dbGetAllChores();
-      var allJarTxs  = await dbGetAllJarTxs();
+      var allChores  = await __demoIdbGetAll('chores');
+      var allJarTxs  = await __demoIdbGetAll('jarTransactions');
+      // Also refresh chores cache
+      if (typeof _memChores !== 'undefined') {
+        _memChores.length = 0;
+        allChores.forEach(function(c){ _memChores.push(c); });
+      }
 
       if (ROLE === 'sophie' && window.currentUserId) {
         chores    = allChores.filter(function(c){ var a=c.assignedTo||[]; return a.indexOf(window.currentUserId)>=0; });
