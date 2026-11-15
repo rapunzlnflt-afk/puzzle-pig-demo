@@ -24,50 +24,45 @@
   } catch(_){}
   window.__PP_DEMO_ROLE__ = __ppDemoRole;
 
-  // Wipe localStorage of any pp_* keys + supabase auth
+  // DEMO STORAGE ISOLATION
+  // The demo shares an origin (cleartrackapps.com) with the paid Puzzle Pig app,
+  // MedRecords and Pawfolio, so it must never read, write or delete their keys.
+  // Every demo key lives under the 'ppDemo:' prefix, and the reset below only
+  // removes keys with that prefix. The real app's pp_* keys and every app's
+  // Supabase sign-in (sb-*, pp_supa_auth) are left untouched.
+  var PP_DEMO_PREFIX = 'ppDemo:';
+  window.ppDemoLS = {
+    getItem: function(k){ try { return localStorage.getItem(PP_DEMO_PREFIX + k); } catch(_){ return null; } },
+    setItem: function(k, v){ try { localStorage.setItem(PP_DEMO_PREFIX + k, v); } catch(_){} },
+    removeItem: function(k){ try { localStorage.removeItem(PP_DEMO_PREFIX + k); } catch(_){} }
+  };
   try {
     var rmKeys = [];
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
-      if (k && (k.indexOf('pp_') === 0 || k.indexOf('sb-') === 0 || k === 'pp_supa_auth')) rmKeys.push(k);
+      if (k && k.indexOf(PP_DEMO_PREFIX) === 0) rmKeys.push(k);
     }
     rmKeys.forEach(function(k){ localStorage.removeItem(k); });
-    console.log('[DEMO] localStorage wiped, removed', rmKeys.length, 'pp_/sb_ keys');
-  } catch(e){ console.warn('[DEMO] localStorage wipe failed', e); }
-
-  // Also wipe sessionStorage of any pp_* / sb-* keys (defensive — some browsers
-  // share sessionStorage across same-origin iframes and stale entries from
-  // the production app could confuse the demo).
-  try {
-    var rmS = [];
-    for (var j = 0; j < sessionStorage.length; j++) {
-      var sk = sessionStorage.key(j);
-      if (sk && (sk.indexOf('pp_') === 0 || sk.indexOf('sb-') === 0)) rmS.push(sk);
-    }
-    rmS.forEach(function(k){ sessionStorage.removeItem(k); });
-  } catch(_){}
+    console.log('[DEMO] demo storage reset, removed', rmKeys.length, 'ppDemo: keys');
+  } catch(e){ console.warn('[DEMO] demo storage reset failed', e); }
 
   // Seed localStorage so the app boots straight into demo mode
   try {
-    localStorage.setItem('pp_family_id', window.__PP_DEMO_FAMILY_ID__);
-    localStorage.setItem('pp_family_code', window.__PP_DEMO_FAMILY_CODE__);
+    ppDemoLS.setItem('pp_family_id', window.__PP_DEMO_FAMILY_ID__);
+    ppDemoLS.setItem('pp_family_code', window.__PP_DEMO_FAMILY_CODE__);
     // If a role is specified via ?role=, pre-set pp_role / pp_kid_user_id
     // so the user-select screen is skipped entirely and the iframe goes
     // straight to the right view. Without ?role= we fall back to the
     // normal sign-in page (used when /app.html is opened directly).
     if (__ppDemoRole === 'sophie') {
-      localStorage.setItem('pp_role', 'child');
-      localStorage.setItem('pp_kid_user_id', window.__PP_DEMO_SOPHIE_ID__);
+      ppDemoLS.setItem('pp_role', 'child');
+      ppDemoLS.setItem('pp_kid_user_id', window.__PP_DEMO_SOPHIE_ID__);
     } else if (__ppDemoRole === 'parent') {
-      localStorage.setItem('pp_role', 'parent');
+      ppDemoLS.setItem('pp_role', 'parent');
     }
   } catch(_){}
 
-  // Wipe BOTH the demo DB and the production DB at the same github.io origin.
-  // The demo only reads/writes PuzzlePigDemoDB, but a leftover production DB +
-  // any half-completed prior demo session has been observed to confuse the
-  // app's startup on some machines (sign-in screen stays stuck). Wiping both
-  // costs ~0ms when they don't exist and guarantees a totally clean slate.
+  // Reset the demo's own IndexedDB database (PuzzlePigDemoDB) on every load.
   window.__PP_DEMO_NEEDS_SEED__ = true;
   window.__PP_DEMO_WIPE_DONE__ = new Promise(function(resolve){
     var resolved = false;
@@ -104,13 +99,9 @@
       }
     }
 
-    var remaining = 2;
-    var oneDone = function(){
-      remaining--;
-      if (remaining <= 0) done('all DBs wiped');
-    };
-    wipeDB('PuzzlePigDemoDB', oneDone);
-    wipeDB('PuzzlePigDB',     oneDone);
+    // Only the demo's own database is reset. PuzzlePigDB belongs to the paid
+    // app on the same origin and must never be deleted from here.
+    wipeDB('PuzzlePigDemoDB', function(){ done('demo DB wiped'); });
   });
 })();
 </script>
@@ -2674,7 +2665,7 @@ function renderUserSelect() {
     const initial = getInitial(u.name);
     const removeBtn = managingUsers ? `<div class="user-card-remove" onclick="event.stopPropagation();removeUser('${u.id}')">✕</div>` : '';
     return `
-      <div class="user-card${managingUsers ? ' editing' : ''}" onclick="${managingUsers ? '' : ((function(){try{return localStorage.getItem('pp_role')==='parent'}catch(_){return false}})() ? '' : `selectUser('${u.id}')`)}" data-testid="user-card-${u.id}">
+      <div class="user-card${managingUsers ? ' editing' : ''}" onclick="${managingUsers ? '' : ((function(){try{return ppDemoLS.getItem('pp_role')==='parent'}catch(_){return false}})() ? '' : `selectUser('${u.id}')`)}" data-testid="user-card-${u.id}">
         ${removeBtn}
         <div class="user-avatar" style="background:${color}">${initial}</div>
         <div class="user-card-name">${esc(u.name)}</div>
@@ -3082,7 +3073,7 @@ async function init() {
 
   // Check if this is the first launch.
   // Skip the parent-oriented welcome guide on kid devices entirely.
-  const ppRole = (typeof localStorage !== 'undefined') ? localStorage.getItem('pp_role') : null;
+  const ppRole = (typeof localStorage !== 'undefined') ? ppDemoLS.getItem('pp_role') : null;
   const isKidDevice = (ppRole === 'child');
   const isParentDevice = (ppRole === 'parent');
   if (isKidDevice){
@@ -4032,7 +4023,7 @@ async function renderParentSettings() {
   const pendingLogsAll = allChoreLogsGlobal.filter(cl => cl.status === 'pending');
 
   const isParentDevice = (function(){
-    try { return localStorage.getItem('pp_role') === 'parent'; } catch(_) { return false; }
+    try { return ppDemoLS.getItem('pp_role') === 'parent'; } catch(_) { return false; }
   })();
 
   // ----- Per-child compact cards -----
@@ -6300,7 +6291,7 @@ async function closeGuide() {
   // to either their locked kid's app or the 'Who are you?' picker.
   try {
     if (document.body.classList.contains('pp-kid-mode')){
-      const lockedId = localStorage.getItem('pp_kid_user_id');
+      const lockedId = ppDemoLS.getItem('pp_kid_user_id');
       if (lockedId && typeof selectUser === 'function'){
         // If already inside the app, currentUserBar will be visible; otherwise re-enter
         if (document.getElementById('app').style.display === 'none'){
@@ -6544,9 +6535,9 @@ init();
   const LS_KID_RESET_TOKEN = 'pp_kid_reset_token'; // last-seen reset_token for this kid
 
   // ---------- module state ----------
-  let familyId = localStorage.getItem(LS_FAMILY_ID) || null;
-  let role     = localStorage.getItem(LS_ROLE)      || null;
-  let familyCode = localStorage.getItem(LS_CODE)    || null;
+  let familyId = ppDemoLS.getItem(LS_FAMILY_ID) || null;
+  let role     = ppDemoLS.getItem(LS_ROLE)      || null;
+  let familyCode = ppDemoLS.getItem(LS_CODE)    || null;
   // Apply body class as early as possible so CSS hides the wrong screens before init() runs
   try {
     if (role === 'parent') document.body.classList.add('pp-parent-mode');
@@ -7052,7 +7043,7 @@ init();
   // ---------- kid-side jar credit on approval ----------
   const CREDITED_LOGS_KEY = 'pp_credited_log_ids';
   function _getCreditedLogIds(){
-    try { return new Set(JSON.parse(localStorage.getItem(CREDITED_LOGS_KEY) || '[]')); }
+    try { return new Set(JSON.parse(ppDemoLS.getItem(CREDITED_LOGS_KEY) || '[]')); }
     catch(_) { return new Set(); }
   }
   function _markLogCredited(id){
@@ -7060,7 +7051,7 @@ init();
       const s = _getCreditedLogIds(); s.add(id);
       // Cap to last 500 to avoid unbounded growth
       const arr = Array.from(s); const trimmed = arr.slice(-500);
-      localStorage.setItem(CREDITED_LOGS_KEY, JSON.stringify(trimmed));
+      ppDemoLS.setItem(CREDITED_LOGS_KEY, JSON.stringify(trimmed));
     } catch(_){}
   }
   async function creditKidJarFromApprovedLog(cl){
@@ -7234,9 +7225,9 @@ init();
         return;
       }
       familyId = famId; role = 'parent'; familyCode = code;
-      localStorage.setItem(LS_FAMILY_ID, familyId);
-      localStorage.setItem(LS_ROLE, role);
-      localStorage.setItem(LS_CODE, code);
+      ppDemoLS.setItem(LS_FAMILY_ID, familyId);
+      ppDemoLS.setItem(LS_ROLE, role);
+      ppDemoLS.setItem(LS_CODE, code);
 
       document.getElementById('familyCodeDisplay').textContent = code;
       document.getElementById('familySetupHeadline').textContent = "You're set up. Share this code with your kid.";
@@ -7285,9 +7276,9 @@ init();
       }
       if (!famId){ setStatus('Joined, but could not read family ID. Please refresh.', true); return; }
       familyId = famId; role = 'child'; familyCode = code;
-      localStorage.setItem(LS_FAMILY_ID, familyId);
-      localStorage.setItem(LS_ROLE, role);
-      localStorage.setItem(LS_CODE, code);
+      ppDemoLS.setItem(LS_FAMILY_ID, familyId);
+      ppDemoLS.setItem(LS_ROLE, role);
+      ppDemoLS.setItem(LS_CODE, code);
       hideSetupOverlay();
       await onFamilyReady();
     };
@@ -7299,7 +7290,7 @@ init();
   }
 
   // ===== KID-MODE LOCKDOWN (one-child-per-phone) =====
-  let kidLockedUserId = localStorage.getItem(LS_KID_USER_ID) || null;
+  let kidLockedUserId = ppDemoLS.getItem(LS_KID_USER_ID) || null;
 
   function lookupKid(id){
     if (!id) return null;
@@ -7338,11 +7329,11 @@ init();
       resetBtn.onclick = () => {
         const ok = confirm('Leave this family and start over?\n\nYou will need a new family code from your parent.');
         if (!ok) return;
-        localStorage.removeItem(LS_FAMILY_ID);
-        localStorage.removeItem(LS_ROLE);
-        localStorage.removeItem(LS_CODE);
-        localStorage.removeItem(LS_KID_USER_ID);
-        localStorage.removeItem(LS_KID_RESET_TOKEN);
+        ppDemoLS.removeItem(LS_FAMILY_ID);
+        ppDemoLS.removeItem(LS_ROLE);
+        ppDemoLS.removeItem(LS_CODE);
+        ppDemoLS.removeItem(LS_KID_USER_ID);
+        ppDemoLS.removeItem(LS_KID_RESET_TOKEN);
         location.reload();
       };
       resetBtn._wired = true;
@@ -7406,8 +7397,8 @@ init();
       return;
     }
     // Remember the current reset_token so a parent reset will trigger relock
-    localStorage.setItem(LS_KID_USER_ID, kidId);
-    localStorage.setItem(LS_KID_RESET_TOKEN, u.reset_token || '');
+    ppDemoLS.setItem(LS_KID_USER_ID, kidId);
+    ppDemoLS.setItem(LS_KID_RESET_TOKEN, u.reset_token || '');
     kidLockedUserId = kidId;
     // v=42: mark this kid as having a device claimed so parent sees "Phone linked"
     try {
@@ -7526,7 +7517,7 @@ init();
       const u = lookupKid(kidLockedUserId);
       if (u){
         // Re-check the reset_token: if it changed, parent has unlinked this device
-        const lastSeen = localStorage.getItem(LS_KID_RESET_TOKEN) || '';
+        const lastSeen = ppDemoLS.getItem(LS_KID_RESET_TOKEN) || '';
         if ((u.reset_token || '') !== lastSeen && lastSeen !== ''){
           // Parent reset — clear and show picker
           unlockKidDevice(false);
@@ -7547,8 +7538,8 @@ init();
   }
 
   function unlockKidDevice(reload){
-    localStorage.removeItem(LS_KID_USER_ID);
-    localStorage.removeItem(LS_KID_RESET_TOKEN);
+    ppDemoLS.removeItem(LS_KID_USER_ID);
+    ppDemoLS.removeItem(LS_KID_RESET_TOKEN);
     kidLockedUserId = null;
     if (reload) location.reload();
   }
@@ -7558,7 +7549,7 @@ init();
     if (role !== 'child') return;
     if (!kidLockedUserId || !row || row.local_id !== kidLockedUserId) return;
     const newTok = row.reset_token || '';
-    const lastSeen = localStorage.getItem(LS_KID_RESET_TOKEN) || '';
+    const lastSeen = ppDemoLS.getItem(LS_KID_RESET_TOKEN) || '';
     if (newTok && newTok !== lastSeen){
       // Parent has unlinked this device
       unlockKidDevice(false);
@@ -7698,11 +7689,11 @@ init();
     forcePull: pullAndMerge,
     state: () => ({ familyId, role, familyCode, authUserId, kidLockedUserId }),
     reset: () => {
-      localStorage.removeItem(LS_FAMILY_ID);
-      localStorage.removeItem(LS_ROLE);
-      localStorage.removeItem(LS_CODE);
-      localStorage.removeItem(LS_KID_USER_ID);
-      localStorage.removeItem(LS_KID_RESET_TOKEN);
+      ppDemoLS.removeItem(LS_FAMILY_ID);
+      ppDemoLS.removeItem(LS_ROLE);
+      ppDemoLS.removeItem(LS_CODE);
+      ppDemoLS.removeItem(LS_KID_USER_ID);
+      ppDemoLS.removeItem(LS_KID_RESET_TOKEN);
       location.reload();
     },
     // Diagnostic: dump everything we know about sync state
