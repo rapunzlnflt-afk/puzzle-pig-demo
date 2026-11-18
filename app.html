@@ -7567,12 +7567,12 @@ init();
       if (typeof currentUserId !== 'undefined' && typeof dbGetAllJars === 'function'){
         const allJ2 = await dbGetAllJars();
         if (typeof jars !== 'undefined') {
-          window.jars = allJ2.filter(j => j.userId === currentUserId);
+          jars = allJ2.filter(j => j.userId === currentUserId).sort((a,b) => (a.order||0) - (b.order||0)); // v122
         }
       }
       if (typeof dbGetAll === 'function' && typeof goals !== 'undefined'){
         const allG2 = await dbGetAll();
-        window.goals = allG2.filter(g => g.userId === currentUserId);
+        goals = allG2.filter(g => g.userId === currentUserId); // v122
       }
       if (typeof renderJarsView === 'function') renderJarsView();
       if (typeof renderHome === 'function') renderHome();
