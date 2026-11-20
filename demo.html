@@ -5,13 +5,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Puzzle Pig — Live Demo (Parent + Kid Side by Side)</title>
 <meta name="description" content="See both sides at once: a kid completes a chore on the left, the parent approves it on the right.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { height:100%; }
   body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: linear-gradient(135deg, #6B4E94 0%, #9375BA 100%);
-    color:#2D2738;
+    font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+    font-weight:500;
+    background: radial-gradient(ellipse 80% 75% at 50% 35%, #96BA74 0%, #8AAF69 48%, #80A561 100%);
+    background-attachment: fixed;
+    color:#3F3A35;
     min-height:100vh;
     display:flex;
     flex-direction:column;
@@ -23,18 +27,19 @@
     padding: 18px 16px 14px;
     flex-shrink:0;
   }
-  header h1 { font-size:1.4rem; margin-bottom:4px; font-weight:700; }
-  header p { font-size:0.9rem; opacity:0.9; }
-  header .pin-note { font-size:0.78rem; opacity:0.78; margin-top:6px; }
-  header .pin-note b { font-family:monospace; letter-spacing:1.5px; }
+  header h1 { font-family:'Fraunces', Georgia, serif; font-size:1.6rem; margin-bottom:4px; font-weight:700; text-shadow:0 2px 0 rgba(70, 95, 60, 0.30); }
+  header p { font-size:0.95rem; font-weight:700; text-shadow:0 1px 2px rgba(60, 85, 50, 0.35); }
+  header .pin-note { font-size:0.8rem; font-weight:600; margin-top:6px; }
+  header .pin-note b { font-weight:800; letter-spacing:1.5px; }
 
   .arrow-bar {
     display:flex; align-items:center; justify-content:center;
     gap:14px; flex-shrink:0;
     padding: 0 16px 8px;
-    color: #ffe9b3;
-    font-size: 0.82rem;
-    font-weight:600;
+    color: #FFF6DA;
+    font-size: 0.85rem;
+    font-weight:700;
+    text-shadow:0 1px 2px rgba(60, 85, 50, 0.35);
   }
   .arrow-bar .arrow { font-size:1.1rem; opacity:0.85; }
 
@@ -49,8 +54,9 @@
 
   .pane {
     background:white;
-    border-radius:22px;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+    border-radius:24px;
+    border:3px solid #fff;
+    box-shadow: 0 8px 24px rgba(50, 75, 40, 0.25);
     overflow:hidden;
     display:flex;
     flex-direction:column;
@@ -58,29 +64,29 @@
   }
   .pane-head {
     padding: 10px 14px;
-    background:#F0ECF7;
-    border-bottom:1px solid #E0D7EF;
+    background:#FFFCF6;
+    border-bottom:1.5px solid #EDE3D3;
     display:flex; align-items:center; justify-content:space-between;
     gap:10px;
     flex-shrink:0;
   }
   .pane-head .who {
     display:flex; align-items:center; gap:8px;
-    font-size:0.95rem; font-weight:700; color:#5C4287;
+    font-size:0.98rem; font-weight:800; color:#4F6839;
   }
   .pane-head .badge {
-    background:#5C4287; color:white; border-radius:999px;
+    background:#D9828B; color:white; border-radius:999px;
     padding:3px 10px; font-size:0.7rem; font-weight:700; letter-spacing:0.5px;
   }
-  .pane-head .badge.parent { background:#2980B9; }
+  .pane-head .badge.parent { background:#80A561; }
   .pane-head .device {
-    font-size:0.72rem; color:#7A6B95; font-weight:500;
+    font-size:0.74rem; color:#6F665E; font-weight:600;
   }
   .pane-body {
     flex:1;
     min-height:0;
     position:relative;
-    background:#f5f3fa;
+    background:#FBF6EE;
   }
   iframe {
     width:100%;
@@ -102,12 +108,12 @@
       flex:1;
       padding:10px 12px;
       border:0; border-radius:10px;
-      background: rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.22);
       color:white;
-      font-weight:700; font-size:0.9rem;
+      font-weight:800; font-family:inherit; font-size:0.9rem;
       cursor:pointer;
     }
-    .tabs button.active { background:white; color:#5C4287; }
+    .tabs button.active { background:white; color:#4F6839; }
     .pane { display:none; }
     .pane.active { display:flex; }
     header { padding: 14px 12px 8px; }
@@ -118,12 +124,13 @@
 
   footer {
     text-align:center;
-    color:rgba(255,255,255,0.85);
-    font-size:0.78rem;
+    color:#fff;
+    font-size:0.8rem;
+    font-weight:600;
     padding: 0 16px 12px;
     flex-shrink:0;
   }
-  footer a { color:#ffe9b3; text-decoration:underline; }
+  footer a { color:#FFF6DA; font-weight:800; text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -153,28 +160,28 @@
   <section class="pane active" id="paneKid">
     <div class="pane-head">
       <div class="who">
-        <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#E8A2C7;color:white;font-size:0.75rem;font-weight:700;text-align:center;line-height:22px;">S</span>
+        <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#D9828B;color:white;font-size:0.75rem;font-weight:700;text-align:center;line-height:22px;">S</span>
         Sophie
         <span class="badge">KID</span>
       </div>
       <div class="device">on her phone</div>
     </div>
     <div class="pane-body">
-      <iframe src="app.html?role=sophie&v=16" title="Sophie's phone" loading="eager"></iframe>
+      <iframe src="app.html?role=sophie&v=17" title="Sophie's phone" loading="eager"></iframe>
     </div>
   </section>
 
   <section class="pane" id="paneParent">
     <div class="pane-head">
       <div class="who">
-        <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#5C4287;color:white;font-size:0.75rem;font-weight:700;text-align:center;line-height:22px;">P</span>
+        <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#80A561;color:white;font-size:0.75rem;font-weight:700;text-align:center;line-height:22px;">P</span>
         Parent
         <span class="badge parent">PARENT</span>
       </div>
       <div class="device">on their phone</div>
     </div>
     <div class="pane-body">
-      <iframe src="app.html?role=parent&v=16" title="Parent's phone" loading="eager"></iframe>
+      <iframe src="app.html?role=parent&v=17" title="Parent's phone" loading="eager"></iframe>
     </div>
   </section>
 </main>
